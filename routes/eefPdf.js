@@ -8,6 +8,10 @@ import { Bangkok202402 } from '../controllers/bangkok202402.Controller.js';
 
 import { TestBangkok } from '../controllers/bangkok.Controller.js';
 import { Bangkok2 } from '../controllers/bangkok2.Controller.js';
+
+
+import { TestPdf2025 } from '../controllers/eef-normal-2025.Controller.js';
+
 const router = Router();
 
 router.get('/bangkok-2024032/:AppID', TestBangkok)
@@ -24,6 +28,12 @@ router.get('/pdf-merge-sp/:u_id', MergeSP)
 router.get('/pdf-merge-sp-download/:u_id', MergeSPDownload)
 router.get('/test-sp/:u_id', TestPdfSp)
 // router.get('/download/:u_id', MainPee)
+
+
+// EEF 2025
+router.get('/eef2025/normal/year2/:u_id', MainPee1)
+router.get('/eef2025/test', TestPdf2025)
+
 
 
 
