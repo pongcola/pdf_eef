@@ -2098,7 +2098,7 @@ export const PDF3 = async (req) => {
             }
         });
 
-        const pipeLine = true;
+        const pipeLine = false;
         if(pipeLine){
             let testFooter = -10
             for (let fi =0 ; fi <= 30; fi++){
@@ -2119,164 +2119,164 @@ export const PDF3 = async (req) => {
         }
 
 
-        // s = { "x": 20, "y": 20, "w": 170, "h": 257, "bd": border }
-        // doc.fontSize(24).font(Bold).fillColor("black").text('ส่วนที่ ๒ รายละเอียดโครงการ', cov(s['x']), cov(143.5), { width: cov(s['w']), height: cov(s['h']), align: 'center' });
+        s = { "x": 20, "y": 20, "w": 170, "h": 257, "bd": border }
+        doc.fontSize(24).font(Bold).fillColor("black").text('ส่วนที่ ๒ รายละเอียดโครงการ', cov(s['x']), cov(143.5), { width: cov(s['w']), height: cov(s['h']), align: 'center' });
 
-        // doc.addPage({
-        //     size: 'A4',
-        //     layout: `portrait`,
-        //     // layout: `landscape`,
-        //     margins: {
-        //         top: 50,
-        //         bottom: 0,
-        //         left: 72,
-        //         right: 72,
-        //     }
-        // })
+        doc.addPage({
+            size: 'A4',
+            layout: `portrait`,
+            // layout: `landscape`,
+            margins: {
+                top: 50,
+                bottom: 0,
+                left: 72,
+                right: 72,
+            }
+        })
         
 
 
-        // doc.lineWidth(0).stroke('black');
-        // s = { "x": 20, "y": 20, "w": 170, "h": 6.5, "bd": border }
-        // doc.fontSize(14).font(Bold).fillColor("black").text('ส่วนที่ ๒ รายละเอียดโครงการ', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'center' });
-        // doc.moveTo(cov(84), cov(s['y'] + s['h'] - 2)).lineTo(cov(s['x'] + s['w'] - 66), cov(s['y'] + s['h'] - 2)).dash(1, { space: 0.01 }).stroke()
+        doc.lineWidth(0).stroke('black');
+        s = { "x": 20, "y": 20, "w": 170, "h": 6.5, "bd": border }
+        doc.fontSize(14).font(Bold).fillColor("black").text('ส่วนที่ ๒ รายละเอียดโครงการ', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'center' });
+        doc.moveTo(cov(84), cov(s['y'] + s['h'] - 2)).lineTo(cov(s['x'] + s['w'] - 66), cov(s['y'] + s['h'] - 2)).dash(1, { space: 0.01 }).stroke()
         
-        // s = { "x": 20, "y": s['y'] + s['h'], "w": 5, "h": 6.5, "bd": border }
-        // doc.font(Bold).fillColor("black").text('1.', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left' });
-        // s = { "x": s['x'] + s['w'], "y": s['y'], "w": 145, "h": 6.5, "bd": border }
-        // doc.font(Bold).fontSize(14).fillColor('black').text("กลุ่มเป้าหมาย :", cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0 });
+        s = { "x": 20, "y": s['y'] + s['h'], "w": 5, "h": 6.5, "bd": border }
+        doc.font(Bold).fillColor("black").text('1.', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left' });
+        s = { "x": s['x'] + s['w'], "y": s['y'], "w": 145, "h": 6.5, "bd": border }
+        doc.font(Bold).fontSize(14).fillColor('black').text("กลุ่มเป้าหมาย :", cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0 });
         
-        // s = { "x": 38, "y": s['y'] + s['h'], "w": 152, "h": 6.5, "bd": border }
-        // doc.font(ThS).fontSize(14).fillColor("black").text('นักศึกษาทุนหลักสูตรประกาศนียบัตรผู้ช่วยพยาบาล (ผู้รับทุน ไม่น้อยกว่า ๓๐ คน และไม่เกินกว่า ๑๕๐ คน)', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.11 });
-        // doc.lineJoin('miter').rect(cov(30), cov(s['y']), cov(4), cov(4)).stroke();
+        s = { "x": 38, "y": s['y'] + s['h'], "w": 152, "h": 6.5, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('นักศึกษาทุนหลักสูตรประกาศนียบัตรผู้ช่วยพยาบาล (ผู้รับทุน ไม่น้อยกว่า ๓๐ คน และไม่เกินกว่า ๑๕๐ คน)', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.11 });
+        doc.lineJoin('miter').rect(cov(30), cov(s['y']), cov(4), cov(4)).stroke();
 
-        // s = { "x": 38, "y": s['y'] + s['h'], "w": 152, "h": 6.5, "bd": border }
-        // doc.font(ThS).fontSize(14).fillColor("black").text('นักศึกษาทุนหลักสูตรประกาศนียบัตรผู้ช่วยทันตแพทย์ (ผู้รับทุน ไม่น้อยกว่า ๓๐ คน และไม่เกินกว่า ๑๕๐ คน)', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.11 });
-        // doc.lineJoin('miter').rect(cov(30), cov(s['y']), cov(4), cov(4)).stroke();
+        s = { "x": 38, "y": s['y'] + s['h'], "w": 152, "h": 6.5, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('นักศึกษาทุนหลักสูตรประกาศนียบัตรผู้ช่วยทันตแพทย์ (ผู้รับทุน ไม่น้อยกว่า ๓๐ คน และไม่เกินกว่า ๑๕๐ คน)', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.11 });
+        doc.lineJoin('miter').rect(cov(30), cov(s['y']), cov(4), cov(4)).stroke();
 
-        // s = { "x": 38, "y": s['y'] + s['h'], "w": 152, "h": 6.5, "bd": border }
-        // doc.font(ThS).fontSize(14).fillColor("black").text('นักศึกษาทุนหลักสูตรระยะสั้นประกาศนียบัตรพนักงานให้การดูแล (ผู้รับทุน จำนวน ๓๐ คน)', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.11 });
-        // doc.lineJoin('miter').rect(cov(30), cov(s['y']), cov(4), cov(4)).stroke();
+        s = { "x": 38, "y": s['y'] + s['h'], "w": 152, "h": 6.5, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('นักศึกษาทุนหลักสูตรระยะสั้นประกาศนียบัตรพนักงานให้การดูแล (ผู้รับทุน จำนวน ๓๐ คน)', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.11 });
+        doc.lineJoin('miter').rect(cov(30), cov(s['y']), cov(4), cov(4)).stroke();
         
-        // s = { "x": 25, "y": s['y'] + s['h'], "w": 165, "h": 6.5, "bd": border }
-        // doc.font(Italic).fontSize(14).fillColor("black").text('(*กรณีสถานศึกษายื่นข้อเสนอทั้ง ๒ ประเภททุนหลักสูตรประกาศนียบัตรผู้ช่วยพยาบาล และทุนหลักสูตรระยะสั้น', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.56 });
-        // s = { "x": 25, "y": s['y'] + s['h'], "w": 152, "h": 6.5, "bd": border }
-        // doc.font(Italic).fontSize(14).fillColor("black").text('ประกาศนียบัตรพนักงานให้การดูแลจำนวนผู้ขอรับทุนทั้งหมดไม่เกิน ๑๕๐ คนต่อสถานศึกษา)', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.11 });
+        s = { "x": 25, "y": s['y'] + s['h'], "w": 165, "h": 6.5, "bd": border }
+        doc.font(Italic).fontSize(14).fillColor("black").text('(*กรณีสถานศึกษายื่นข้อเสนอทั้ง ๒ ประเภททุนหลักสูตรประกาศนียบัตรผู้ช่วยพยาบาล และทุนหลักสูตรระยะสั้น', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.56 });
+        s = { "x": 25, "y": s['y'] + s['h'], "w": 152, "h": 6.5, "bd": border }
+        doc.font(Italic).fontSize(14).fillColor("black").text('ประกาศนียบัตรพนักงานให้การดูแลจำนวนผู้ขอรับทุนทั้งหมดไม่เกิน ๑๕๐ คนต่อสถานศึกษา)', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.11 });
         
-        // s = { "x": 20, "y": s['y'] + s['h'], "w": 5, "h": 6.5, "bd": border }
-        // doc.font(Bold).fillColor("black").text('2.', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left' });
-        // s = { "x": s['x'] + s['w'], "y": s['y'], "w": 40, "h": 6.5, "bd": border }
-        // doc.font(Bold).fontSize(14).fillColor('black').text("สาขาวิชาที่สถานศึกษาเสนอ", cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0 });
+        s = { "x": 20, "y": s['y'] + s['h'], "w": 5, "h": 6.5, "bd": border }
+        doc.font(Bold).fillColor("black").text('2.', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left' });
+        s = { "x": s['x'] + s['w'], "y": s['y'], "w": 40, "h": 6.5, "bd": border }
+        doc.font(Bold).fontSize(14).fillColor('black').text("สาขาวิชาที่สถานศึกษาเสนอ", cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0 });
         
-        // s = { "x": s['x'] + s['w'], "y": s['y'], "w": 125, "h": 6.5, "bd": border }
-        // doc.font(ThS).fontSize(14).fillColor('black').text("สาขาที่ท่านเห็นว่ามีศักยภาพในการจัดการเรียนการสอน ทั้งนี้สามารถเสนอจำนวนหลักสูตรสาขา", cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.04 });
+        s = { "x": s['x'] + s['w'], "y": s['y'], "w": 125, "h": 6.5, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor('black').text("สาขาที่ท่านเห็นว่ามีศักยภาพในการจัดการเรียนการสอน ทั้งนี้สามารถเสนอจำนวนหลักสูตรสาขา", cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.04 });
         
-        // s = { "x": 25, "y": s['y'] + s['h'], "w": 152, "h": 6.5, "bd": border }
-        // doc.font(ThS).fontSize(14).fillColor("black").text('ไม่เกิน ๒ สาขา โปรดระบุหลักสูตรสาขา ดังนี้', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.11 });
+        s = { "x": 25, "y": s['y'] + s['h'], "w": 152, "h": 6.5, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('ไม่เกิน ๒ สาขา โปรดระบุหลักสูตรสาขา ดังนี้', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.11 });
         
-        // s = { "x": 30, "y": s['y'] + s['h'], "w": 61, "h": 6.5, "bd": border }
-        // doc.font(Bold).fontSize(14).fillColor("black").text('หลักสูตรประกาศนียบัตรผู้ช่วยพยาบาล ๑ ปี ', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0 });
-        // doc.lineJoin('miter').rect(cov(25), cov(s['y']), cov(4), cov(4)).stroke();
+        s = { "x": 30, "y": s['y'] + s['h'], "w": 61, "h": 6.5, "bd": border }
+        doc.font(Bold).fontSize(14).fillColor("black").text('หลักสูตรประกาศนียบัตรผู้ช่วยพยาบาล ๑ ปี ', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0 });
+        doc.lineJoin('miter').rect(cov(25), cov(s['y']), cov(4), cov(4)).stroke();
         
-        // s = { "x": s['x'] + s['w'], "y": s['y'], "w": 10, "h": 6.5, "bd": border }
-        // doc.font(ThS).fontSize(14).fillColor('black').text("จำนวน", cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0 });
+        s = { "x": s['x'] + s['w'], "y": s['y'], "w": 10, "h": 6.5, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor('black').text("จำนวน", cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0 });
         
-        // s = { "x": s['x'] + s['w'], "y": s['y'], "w": 20, "h": 6.5, "bd": border }
-        // doc.font(ThS).fontSize(14).fillColor('black').text(`I0100`, cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'center', characterSpacing: 0 });
-        // doc.moveTo(cov(s['x']), cov(s['y'] + s['h'] - 2)).lineTo(cov(s['x'] + s['w']), cov(s['y'] + s['h'] - 2)).dash(1, { space: 1.5 }).stroke()
+        s = { "x": s['x'] + s['w'], "y": s['y'], "w": 20, "h": 6.5, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor('black').text(`I0100`, cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'center', characterSpacing: 0 });
+        doc.moveTo(cov(s['x']), cov(s['y'] + s['h'] - 2)).lineTo(cov(s['x'] + s['w']), cov(s['y'] + s['h'] - 2)).dash(1, { space: 1.5 }).stroke()
 
-        // s = { "x": s['x'] + s['w'], "y": s['y'], "w": 69, "h": 6.5, "bd": border }
-        // doc.font(ThS).fontSize(14).fillColor('black').text("คน (ต้องได้การรับรองหลักสูตรจากสภาการพยาบาล", cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.1 });
+        s = { "x": s['x'] + s['w'], "y": s['y'], "w": 69, "h": 6.5, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor('black').text("คน (ต้องได้การรับรองหลักสูตรจากสภาการพยาบาล", cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.1 });
 
-        // s = { "x": 25, "y": s['y'] + s['h'], "w": 152, "h": 6.5, "bd": border }
-        // doc.font(ThS).fontSize(14).fillColor("black").text('และสถาบันการศึกษาที่มีหลักสูตรดังกล่าวต้องได้รับการรับรองให้จัดการเรียนการสอนเป็นเวลาไม่น้อยกว่า ๓ ปี)', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.11 });
+        s = { "x": 25, "y": s['y'] + s['h'], "w": 152, "h": 6.5, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('และสถาบันการศึกษาที่มีหลักสูตรดังกล่าวต้องได้รับการรับรองให้จัดการเรียนการสอนเป็นเวลาไม่น้อยกว่า ๓ ปี)', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.11 });
         
-        // s = { "x": 25, "y": s['y'] + s['h'], "w": 56, "h": 6.5, "bd": border }
-        // doc.font(Bold).fontSize(14).fillColor("black").text('๑. การสนับสนุนทุนเพิ่มเติมจากที่ กสศ. สนับสนุน', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.11 });
-        // s = { "x": s['x'] + s['w'], "y": s['y'], "w": 109, "h": 6.5, "bd": border }
-        // doc.font(ThS).fontSize(14).fillColor('black').text("โดย กสศ. จะพิจารณาข้อเสนอโครงการของสถานศึกษาเป็นพิเศษากมีการร่วม", cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.43 });
-        // doc.rect(cov(s['x']), cov(s['y']), cov(s['w']), cov(s['h'])).stroke();
-        // s = { "x": 25, "y": s['y'] + s['h'], "w": 152, "h": 6.5, "bd": border }
-        // doc.font(ThS).fontSize(14).fillColor("black").text('สนับสนุนทุนและงบประมาณ', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.11 }).undash();
+        s = { "x": 25, "y": s['y'] + s['h'], "w": 56, "h": 6.5, "bd": border }
+        doc.font(Bold).fontSize(14).fillColor("black").text('๑. การสนับสนุนทุนเพิ่มเติมจากที่ กสศ. สนับสนุน', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.11 });
+        s = { "x": s['x'] + s['w'], "y": s['y'], "w": 109, "h": 6.5, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor('black').text("โดย กสศ. จะพิจารณาข้อเสนอโครงการของสถานศึกษาเป็นพิเศษากมีการร่วม", cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.43 });
+        doc.rect(cov(s['x']), cov(s['y']), cov(s['w']), cov(s['h'])).stroke();
+        s = { "x": 25, "y": s['y'] + s['h'], "w": 152, "h": 6.5, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('สนับสนุนทุนและงบประมาณ', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.11 }).undash();
         
-        // s = { "x": 38, "y": s['y'] + s['h'], "w": 152, "h": 6.5, "bd": border }
-        // doc.font(ThS).fontSize(14).fillColor("black").text('ไม่มีสนับสนุนทุนเพิ่มเติม', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.11 });
-        // doc.lineJoin('miter').rect(cov(30), cov(s['y']), cov(4), cov(4)).stroke();
+        s = { "x": 38, "y": s['y'] + s['h'], "w": 152, "h": 6.5, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('ไม่มีสนับสนุนทุนเพิ่มเติม', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.11 });
+        doc.lineJoin('miter').rect(cov(30), cov(s['y']), cov(4), cov(4)).stroke();
         
-        // s = { "x": 38, "y": s['y'] + s['h'], "w": 40, "h": 6.5, "bd": border }
-        // doc.font(ThS).fontSize(14).fillColor("black").text('มีสนับสนุนทุนเพิ่มเติม จำนวน', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.11 });
-        // doc.lineJoin('miter').rect(cov(30), cov(s['y']), cov(4), cov(4)).stroke();
-        // s = { "x": s['x'] + s['w'], "y": s['y'], "w": 20, "h": 6.5, "bd": border }
-        // doc.font(ThS).fontSize(14).fillColor('black').text(`I0100`, cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'center', characterSpacing: 0 });
-        // doc.moveTo(cov(s['x']), cov(s['y'] + s['h'] - 2)).lineTo(cov(s['x'] + s['w']), cov(s['y'] + s['h'] - 2)).dash(1, { space: 1.5 }).stroke()
-        // s = { "x": s['x'] + s['w'], "y": s['y'], "w": 20, "h": 6.5, "bd": border }
-        // doc.font(ThS).fontSize(14).fillColor("black").text('ทุน', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.11 }).undash();
+        s = { "x": 38, "y": s['y'] + s['h'], "w": 40, "h": 6.5, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('มีสนับสนุนทุนเพิ่มเติม จำนวน', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.11 });
+        doc.lineJoin('miter').rect(cov(30), cov(s['y']), cov(4), cov(4)).stroke();
+        s = { "x": s['x'] + s['w'], "y": s['y'], "w": 20, "h": 6.5, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor('black').text(`I0100`, cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'center', characterSpacing: 0 });
+        doc.moveTo(cov(s['x']), cov(s['y'] + s['h'] - 2)).lineTo(cov(s['x'] + s['w']), cov(s['y'] + s['h'] - 2)).dash(1, { space: 1.5 }).stroke()
+        s = { "x": s['x'] + s['w'], "y": s['y'], "w": 20, "h": 6.5, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('ทุน', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.11 }).undash();
        
-        // s = { "x": 25, "y": s['y'] + s['h'], "w": 60, "h": 6.5, "bd": border }
-        // doc.font(Bold).fontSize(14).fillColor("black").text('กรณีที่มีสนับสนุนทุนเพิ่มเติม โปรดระบุแหล่งงบประมาณ', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.11 });
+        s = { "x": 25, "y": s['y'] + s['h'], "w": 60, "h": 6.5, "bd": border }
+        doc.font(Bold).fontSize(14).fillColor("black").text('กรณีที่มีสนับสนุนทุนเพิ่มเติม โปรดระบุแหล่งงบประมาณ', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.11 });
        
-        // s = { "x": 38, "y": s['y'] + s['h'], "w": 70, "h": 6.5, "bd": border }
-        // doc.font(ThS).fontSize(14).fillColor("black").text('ทุนการศึกษาของวิทยาลัย/มหาวิทยาลัย', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.11 });
-        // doc.lineJoin('miter').rect(cov(30), cov(s['y']), cov(4), cov(4)).stroke();
+        s = { "x": 38, "y": s['y'] + s['h'], "w": 70, "h": 6.5, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('ทุนการศึกษาของวิทยาลัย/มหาวิทยาลัย', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.11 });
+        doc.lineJoin('miter').rect(cov(30), cov(s['y']), cov(4), cov(4)).stroke();
         
-        // s = { "x": s['x'] + s['w'], "y": s['y'], "w": 55, "h": 6.5, "bd": border }
-        // doc.font(ThS).fontSize(14).fillColor('black').text("สมาคมศิษย์เก่า", cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0 });
-        // doc.lineJoin('miter').rect(cov(100), cov(s['y']), cov(4), cov(4)).stroke();
+        s = { "x": s['x'] + s['w'], "y": s['y'], "w": 55, "h": 6.5, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor('black').text("สมาคมศิษย์เก่า", cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0 });
+        doc.lineJoin('miter').rect(cov(100), cov(s['y']), cov(4), cov(4)).stroke();
         
-        // s = { "x": s['x'] + s['w'], "y": s['y'], "w": 30, "h": 6.5, "bd": border }
-        // doc.font(ThS).fontSize(14).fillColor('black').text("สมาคมผู้ปกครอง", cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'center', characterSpacing: 0 });
-        // doc.lineJoin('miter').rect(cov(158), cov(s['y']), cov(4), cov(4)).stroke();
+        s = { "x": s['x'] + s['w'], "y": s['y'], "w": 30, "h": 6.5, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor('black').text("สมาคมผู้ปกครอง", cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'center', characterSpacing: 0 });
+        doc.lineJoin('miter').rect(cov(158), cov(s['y']), cov(4), cov(4)).stroke();
         
-        // s = { "x": 38, "y": s['y'] + s['h'], "w": 70, "h": 6.5, "bd": border }
-        // doc.font(ThS).fontSize(14).fillColor("black").text('สถานประกอบการ', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.11 });
-        // doc.lineJoin('miter').rect(cov(30), cov(s['y']), cov(4), cov(4)).stroke();
+        s = { "x": 38, "y": s['y'] + s['h'], "w": 70, "h": 6.5, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('สถานประกอบการ', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.11 });
+        doc.lineJoin('miter').rect(cov(30), cov(s['y']), cov(4), cov(4)).stroke();
         
-        // s = { "x": s['x'] + s['w'], "y": s['y'], "w": 14, "h": 6.5, "bd": border }
-        // doc.font(ThS).fontSize(14).fillColor('black').text("อื่น ๆ ระบุ", cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0 });
-        // doc.lineJoin('miter').rect(cov(100), cov(s['y']), cov(4), cov(4)).stroke();
-        // s = { "x": s['x'] + s['w'], "y": s['y'], "w": 68, "h": 6.5, "bd": border }
-        // doc.font(ThS).fontSize(14).fillColor('black').text(`I0100`, cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'center', characterSpacing: 0 });
-        // doc.moveTo(cov(s['x']), cov(s['y'] + s['h'] - 2)).lineTo(cov(s['x'] + s['w']), cov(s['y'] + s['h'] - 2)).dash(1, { space: 1.5 }).stroke()
+        s = { "x": s['x'] + s['w'], "y": s['y'], "w": 14, "h": 6.5, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor('black').text("อื่น ๆ ระบุ", cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0 });
+        doc.lineJoin('miter').rect(cov(100), cov(s['y']), cov(4), cov(4)).stroke();
+        s = { "x": s['x'] + s['w'], "y": s['y'], "w": 68, "h": 6.5, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor('black').text(`I0100`, cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'center', characterSpacing: 0 });
+        doc.moveTo(cov(s['x']), cov(s['y'] + s['h'] - 2)).lineTo(cov(s['x'] + s['w']), cov(s['y'] + s['h'] - 2)).dash(1, { space: 1.5 }).stroke()
         
-        // s = { "x": 25, "y": s['y'] + s['h'], "w": 60, "h": 6.5, "bd": border }
-        // doc.font(Bold).fontSize(14).fillColor("black").text('ลักษณะของการสนับสนุนทุนเพิ่มเติม', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.11 }).undash();
+        s = { "x": 25, "y": s['y'] + s['h'], "w": 60, "h": 6.5, "bd": border }
+        doc.font(Bold).fontSize(14).fillColor("black").text('ลักษณะของการสนับสนุนทุนเพิ่มเติม', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.11 }).undash();
        
-        // s = { "x": 38, "y": s['y'] + s['h'], "w": 70, "h": 6.5, "bd": border }
-        // doc.font(ThS).fontSize(14).fillColor("black").text('ทุนเต็มจำนวนเทียบเท่ากับทุน กสศ.', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.11 });
-        // doc.lineJoin('miter').rect(cov(30), cov(s['y']), cov(4), cov(4)).stroke();
+        s = { "x": 38, "y": s['y'] + s['h'], "w": 70, "h": 6.5, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('ทุนเต็มจำนวนเทียบเท่ากับทุน กสศ.', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.11 });
+        doc.lineJoin('miter').rect(cov(30), cov(s['y']), cov(4), cov(4)).stroke();
 
-        // s = { "x": 38, "y": s['y'] + s['h'], "w": 70, "h": 6.5, "bd": border }
-        // doc.font(ThS).fontSize(14).fillColor("black").text('ทุนไม่เต็มจำนวน', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.11 });
-        // doc.lineJoin('miter').rect(cov(30), cov(s['y']), cov(4), cov(4)).stroke();
+        s = { "x": 38, "y": s['y'] + s['h'], "w": 70, "h": 6.5, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('ทุนไม่เต็มจำนวน', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.11 });
+        doc.lineJoin('miter').rect(cov(30), cov(s['y']), cov(4), cov(4)).stroke();
         
-        // s = { "x": 38, "y": s['y'] + s['h'], "w": 60, "h": 6.5, "bd": border }
-        // doc.font(ThS).fontSize(14).fillColor("black").text('สนับสนุนได้เป็นบางส่วน ได้แก่', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.11 });
+        s = { "x": 38, "y": s['y'] + s['h'], "w": 60, "h": 6.5, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('สนับสนุนได้เป็นบางส่วน ได้แก่', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.11 });
         
-        // s = { "x": s['x'] + s['w'], "y": s['y'], "w": 30, "h": 6.5, "bd": border }
-        // doc.font(ThS).fontSize(14).fillColor('black').text("ค่าธรรมเนียมการศึกษา", cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'center', characterSpacing: 0 });
-        // doc.lineJoin('miter').rect(cov(90), cov(s['y']), cov(4), cov(4)).stroke();
+        s = { "x": s['x'] + s['w'], "y": s['y'], "w": 30, "h": 6.5, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor('black').text("ค่าธรรมเนียมการศึกษา", cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'center', characterSpacing: 0 });
+        doc.lineJoin('miter').rect(cov(90), cov(s['y']), cov(4), cov(4)).stroke();
         
-        // s = { "x": 38, "y": s['y'] + s['h'], "w": 60, "h": 6.5, "bd": border }
-        // s = { "x": s['x'] + s['w'], "y": s['y'], "w": 38, "h": 6.5, "bd": border }
-        // doc.font(ThS).fontSize(14).fillColor('black').text("ค่าใช้จ่ายรายเดือน เดือนละ", cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'center', characterSpacing: 0 });
-        // doc.lineJoin('miter').rect(cov(90), cov(s['y']), cov(4), cov(4)).stroke();
+        s = { "x": 38, "y": s['y'] + s['h'], "w": 60, "h": 6.5, "bd": border }
+        s = { "x": s['x'] + s['w'], "y": s['y'], "w": 38, "h": 6.5, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor('black').text("ค่าใช้จ่ายรายเดือน เดือนละ", cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'center', characterSpacing: 0 });
+        doc.lineJoin('miter').rect(cov(90), cov(s['y']), cov(4), cov(4)).stroke();
 
-        // s = { "x": s['x'] + s['w'], "y": s['y'], "w": 43, "h": 6.5, "bd": border }
-        // doc.font(ThS).fontSize(14).fillColor('black').text(`I0100`, cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'center', characterSpacing: 0 });
-        // doc.moveTo(cov(s['x']), cov(s['y'] + s['h'] - 2)).lineTo(cov(s['x'] + s['w']), cov(s['y'] + s['h'] - 2)).dash(1, { space: 1.5 }).stroke()
-        // s = { "x": s['x'] + s['w'], "y": s['y'], "w": 68, "h": 6.5, "bd": border }
-        // doc.font(ThS).fontSize(14).fillColor('black').text(`บาท/ทุน`, cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0 }).undash();
+        s = { "x": s['x'] + s['w'], "y": s['y'], "w": 43, "h": 6.5, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor('black').text(`I0100`, cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'center', characterSpacing: 0 });
+        doc.moveTo(cov(s['x']), cov(s['y'] + s['h'] - 2)).lineTo(cov(s['x'] + s['w']), cov(s['y'] + s['h'] - 2)).dash(1, { space: 1.5 }).stroke()
+        s = { "x": s['x'] + s['w'], "y": s['y'], "w": 68, "h": 6.5, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor('black').text(`บาท/ทุน`, cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0 }).undash();
         
-        // s = { "x": 38, "y": s['y'] + s['h'], "w": 15, "h": 6.5, "bd": border }
-        // doc.font(ThS).fontSize(14).fillColor("black").text('อื่น ๆ ระบุ', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.11 });
-        // doc.lineJoin('miter').rect(cov(30), cov(s['y']), cov(4), cov(4)).stroke();
-        // s = { "x": s['x'] + s['w'], "y": s['y'], "w": 137, "h": 6.5, "bd": border }
-        // doc.font(ThS).fontSize(14).fillColor('black').text(`I0100`, cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'center', characterSpacing: 0 });
-        // doc.moveTo(cov(s['x']), cov(s['y'] + s['h'] - 2)).lineTo(cov(s['x'] + s['w']), cov(s['y'] + s['h'] - 2)).dash(1, { space: 1.5 }).stroke()
+        s = { "x": 38, "y": s['y'] + s['h'], "w": 15, "h": 6.5, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('อื่น ๆ ระบุ', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.11 });
+        doc.lineJoin('miter').rect(cov(30), cov(s['y']), cov(4), cov(4)).stroke();
+        s = { "x": s['x'] + s['w'], "y": s['y'], "w": 137, "h": 6.5, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor('black').text(`I0100`, cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'center', characterSpacing: 0 });
+        doc.moveTo(cov(s['x']), cov(s['y'] + s['h'] - 2)).lineTo(cov(s['x'] + s['w']), cov(s['y'] + s['h'] - 2)).dash(1, { space: 1.5 }).stroke()
         
         let coCc = 3
         for await (let dataI of [1,2,3,4]) {
-            if(coCc != 3){
+            // if(coCc != 3){
                 doc.addPage({
                     size: 'A4',
                     layout: `portrait`,
@@ -2288,7 +2288,7 @@ export const PDF3 = async (req) => {
                         right: 72,
                     }
                 })
-            }
+            // }
             
 
             s = { "x": 20, "y": 20, "w": 5, "h": 6.5, "bd": border }
@@ -2460,7 +2460,7 @@ export const PDF3 = async (req) => {
             }
 
             s = { "x": 20, "y": s['y'] + s['h']+5, "w": 111, "h": 6.5, "bd": border }
-            doc.font(ThS).fillColor("black").text("* สำหรับอาจารย์พิเศษ หรืออาจารย์ที่มีคุณวุฒิไม่สอดคล้องกับสาขา", cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left' });
+            doc.font(ThS).fillColor("black").text("* สำหรับอาจารย์พิเศษ หรืออาจารย์ที่มีคุณวุฒิไม่สอดคล้องกับสาขา", cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left' }).undash();
             
             s = { "x": 30, "y": s['y'] + s['h'], "w": 65, "h": 6.5, "bd": border }
             doc.font(Bold).fontSize(14).fillColor("black").text('หลักสูตรประกาศนียบัตรผู้ช่วยทันตแพทย์ ๑ ปี', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.11 });
@@ -2480,7 +2480,7 @@ export const PDF3 = async (req) => {
             s = { "x": s['x'] + s['w'], "y": s['y'], "w": 110, "h": 6.5, "bd": border }
             doc.font(ThS).fontSize(14).fillColor("black").text('โดย กสศ. จะพิจารณาข้อเสนอโครงการของสถานศึกษาเป็นพิเศษ หากมีการร่วม', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.3 });
            s = { "x": 25, "y": s['y'] + s['h'], "w": 60, "h": 6.5, "bd": border }
-        doc.font(Bold).fontSize(14).fillColor("black").text('กรณีที่มีสนับสนุนทุนเพิ่มเติม โปรดระบุแหล่งงบประมาณ', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.11 });
+        doc.font(Bold).fontSize(14).fillColor("black").text('กรณีที่มีสนับสนุนทุนเพิ่มเติม โปรดระบุแหล่งงบประมาณ', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.11 }).undash();
        
         s = { "x": 38, "y": s['y'] + s['h'], "w": 70, "h": 6.5, "bd": border }
         doc.font(ThS).fontSize(14).fillColor("black").text('ทุนการศึกษาของวิทยาลัย/มหาวิทยาลัย', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.11 });
@@ -2571,6 +2571,830 @@ export const PDF3 = async (req) => {
     }
 };
 
+
+export const PDF4 = async (req) => {
+    try {
+        const Bold = 'font/THSarabunNew Bold.ttf';
+        const BoldItalic = 'font/THSarabunNew BoldItalic.ttf';
+        const Italic = 'font/THSarabunNew Italic.ttf';
+        const ThS = 'font/THSarabunNew.ttf';
+
+
+        let s = {};
+
+        const border = 'ffffff';
+
+        let x;
+        let y = 0;
+
+        let doc = new PDFDocument({
+            size: 'A4',
+            layout: `portrait`,
+            margins: {
+                top: 50,
+                bottom: 0,
+                left: 72,
+                right: 72,
+            }
+        });
+
+        const pipeLine = true;
+        if(pipeLine){
+            let testFooter = -10
+            for (let fi =0 ; fi <= 30; fi++){
+                s = { "x": testFooter+=10, "y": 0, "w": 10, "h": 300, "bd": border }
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']), cov(s['y'] ), { width: cov(s['w']), height: cov(s['h']), align: 'left' });
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']), cov(s['y'] + 75), { width: cov(s['w']), height: cov(s['h']), align: 'left' });
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']), cov(s['y'] + 150), { width: cov(s['w']), height: cov(s['h']), align: 'left' });
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']), cov(s['y'] + 225), { width: cov(s['w']), height: cov(s['h']), align: 'left' });
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']), cov(s['y'] + 290), { width: cov(s['w']), height: cov(s['h']), align: 'left' });
+                doc.rect(cov(s['x']), cov(s['y']), cov(s['w']), cov(s['h'])).dash(1, { space: 1.5 }).stroke("#c4c2c2");
+            }
+            testFooter = -10
+            for (let fi =0 ; fi <= 30; fi++){
+                s = { "x": 0, "y": testFooter+=10, "w": 300, "h": 10, "bd": border }
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']), cov(s['y']), { width: cov(10), height: cov(s['h']), align: 'left' });
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']+50), cov(s['y']), { width: cov(10), height: cov(s['h']), align: 'left' });
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']+100), cov(s['y']), { width: cov(10), height: cov(s['h']), align: 'left' });
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']+150), cov(s['y']), { width: cov(10), height: cov(s['h']), align: 'left' });
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']+200), cov(s['y']), { width: cov(10), height: cov(s['h']), align: 'left' });
+                doc.rect(cov(s['x']), cov(s['y']), cov(s['w']), cov(s['h'])).dash(1, { space: 1.5 }).stroke("#c4c2c2");
+            }
+        }
+
+
+        doc.lineWidth(0).stroke('black');
+        s = { "x": 20, "y": 20, "w": 5, "h": 6.5, "bd": border }
+        doc.font(Bold).fillColor("black").text('4.', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left' });
+        s = { "x": s['x'] + s['w'], "y": s['y'], "w": 18, "h": 6.5, "bd": border }
+        doc.font(Bold).fontSize(14).fillColor('black').text("วัตถุประสงค์", cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0 });
+        s = { "x": s['x'] + s['w'], "y": s['y'], "w": 145, "h": 6.5, "bd": border }
+        doc.font(Italic).fontSize(14).fillColor('black').text("(ผลลัพธ์ ผลกระทบที่ต้องการให้เกิดขึ้นกับนักเรียน/นักศึกษาและสถานศึกษา)", cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0 });
+        
+        s = { "x": 25, "y": s['y'] + s['h'], "w": 152, "h": 6.5, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('วัตถุประสงค์ของโครงการนี้ คือ', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.11 });
+
+        s = { "x": 25, "y": s['y'] + s['h'], "w": 165, "h": 6.5, "bd": border }
+        doc.font(ThS).fillColor("black").text('4.1) สร้างโอกาสที่เสมอภาคของเยาวชนผู้ขาดแคลนทุนทรัพย์และด้อยโอกาสให้ได้รับการศึกษาที่มีคุณภาพระดับสูง ', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0 });
+        s = { "x": 20, "y": s['y'] + s['h'], "w": 165, "h": 6.5, "bd": border }
+        doc.font(ThS).fillColor("black").text('กว่ามัธยมศึกษาตอนปลาย ตลอดจนส่งเสริมให้ผู้สำเร็จการศึกษาดังกล่าวสามารถมีงานทำ', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0 });
+       
+        s = { "x": 25, "y": s['y'] + s['h'], "w": 165, "h": 6.5, "bd": border }
+        doc.font(ThS).fillColor("black").text('4.2) ยกระดับคุณภาพสถานศึกษาในการผลิตกำลังคนสายอาชีพชั้นสูงให้ตอบสนองต่อความต้องการและ ', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0 });
+        s = { "x": 20, "y": s['y'] + s['h'], "w": 165, "h": 6.5, "bd": border }
+        doc.font(ThS).fillColor("black").text('เพิ่มขีดความสามารถทางการแข่งขันของประเทศตามแผนยุทธศาสตร์ประเทศไทย ๔.๐', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0 });
+       
+        let io = 3
+        for await (const p of [1,2,3]) {
+            s = { "x": 20, "y": voc(doc.y), "w": 157, "h": 6.5, "bd": border }
+            doc.font(Italic).fillColor("black").text("     4."+io+") "+`I00011`, cov(s['x']), cov(s['y']), { width: cov(s['w']), align: 'left', characterSpacing: 0.18 });
+            io++
+        }
+
+
+        doc.end();
+
+
+        let finalString = '';
+        let stream = doc.pipe(new Base64Encode());
+
+        stream.on('data', function (chunk) {
+            finalString += chunk;
+        });
+
+        const base64 = await new Promise((resolve, reject) => {
+            stream.on('end', () => {
+                resolve(finalString)
+            })
+        })
+
+        return base64
+
+    } catch (error) {
+        console.log(error)
+        return null
+    }
+};
+
+
+
+export const PDF5 = async (req) => {
+    try {
+        const Bold = 'font/THSarabunNew Bold.ttf';
+        const BoldItalic = 'font/THSarabunNew BoldItalic.ttf';
+        const Italic = 'font/THSarabunNew Italic.ttf';
+        const ThS = 'font/THSarabunNew.ttf';
+
+
+        let s = {};
+
+        const border = 'ffffff';
+
+        let x;
+        let y = 0;
+
+        let doc = new PDFDocument({
+            size: 'A4',
+            layout: `landscape`,
+            margins: {
+                top: 50,
+                bottom: 0,
+                left: 72,
+                right: 72,
+            }
+        });
+
+        const pipeLine = true;
+        if(pipeLine){
+            let testFooter = -10
+            for (let fi =0 ; fi <= 30; fi++){
+                s = { "x": testFooter+=10, "y": 0, "w": 10, "h": 300, "bd": border }
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']), cov(s['y'] ), { width: cov(s['w']), height: cov(s['h']), align: 'left' });
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']), cov(s['y'] + 75), { width: cov(s['w']), height: cov(s['h']), align: 'left' });
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']), cov(s['y'] + 150), { width: cov(s['w']), height: cov(s['h']), align: 'left' });
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']), cov(s['y'] + 225), { width: cov(s['w']), height: cov(s['h']), align: 'left' });
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']), cov(s['y'] + 290), { width: cov(s['w']), height: cov(s['h']), align: 'left' });
+                doc.rect(cov(s['x']), cov(s['y']), cov(s['w']), cov(s['h'])).dash(1, { space: 1.5 }).stroke("#c4c2c2");
+            }
+            testFooter = -10
+            for (let fi =0 ; fi <= 30; fi++){
+                s = { "x": 0, "y": testFooter+=10, "w": 300, "h": 10, "bd": border }
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']), cov(s['y']), { width: cov(10), height: cov(s['h']), align: 'left' });
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']+50), cov(s['y']), { width: cov(10), height: cov(s['h']), align: 'left' });
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']+100), cov(s['y']), { width: cov(10), height: cov(s['h']), align: 'left' });
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']+150), cov(s['y']), { width: cov(10), height: cov(s['h']), align: 'left' });
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']+200), cov(s['y']), { width: cov(10), height: cov(s['h']), align: 'left' });
+                doc.rect(cov(s['x']), cov(s['y']), cov(s['w']), cov(s['h'])).dash(1, { space: 1.5 }).stroke("#c4c2c2");
+            }
+        }
+
+
+        doc.lineWidth(0).stroke('black');
+        s = { "x": 20, "y": 20, "w": 5, "h": 6.5, "bd": border }
+        doc.font(Bold).fillColor("black").text('5.', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left' });
+        s = { "x": s['x'] + s['w'], "y": s['y'], "w": 200, "h": 6.5, "bd": border }
+        doc.font(Bold).fontSize(14).fillColor('black').text("รายละเอียดสาขาที่สถานศึกษาเสนอ", cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0 });
+        
+        let  chkPage = 1
+        for await (let X of [1,2,3,4]) {
+            let DataTableA = [];
+            if(chkPage != 1) {
+                doc.addPage({
+                    size: 'A4',
+                    layout: `landscape`,
+                    // layout: `landscape`,
+                    margins: {
+                        top: 50,
+                        bottom: 0,
+                        left: 72,
+                        right: 72,
+                    }
+                })
+            }
+            DataTableA.push(
+                [
+                    "[ ] หลักสูตรประกาศนียบัตรผู้ช่วยพยาบาล",
+                    "ได้รับการอนุมัติให้เปิดสอนในปี "+`I0000`+ "\nหน่วยงานที่อนุมัติหลักสูตร "+`I0000`,
+                    "[ ] หลักสูตรปกติที่เปิดสอนโดยทั่วไป\n"+
+                    "[ ] หลักสูตรที่มีการพัฒนากับสถานประกอบการ/สถานบริการสุขภาพ/หน่วยงานรัฐ/หน่วยงานท้องถิ่น ที่ร่วม\n"+
+                    `I0000`+
+                    "\n     ( ) รัฐ     ( ) เอกชน     ( ) ท้องถิ่น"+
+                    "\n( ) ได้รับงบประมาณ หรือทรัพยากรอื่น ๆ สนับสนุน โปรดระบุรายการที่ได้รับการสนับสนุน\n"+`     I0000`+
+                    "\n( ) ไม่ได้รับงบประมาณสนับสนุนจากสถานประกอบการ"+
+                    "\n[ ] หลักสูตรที่มีโครงการความร่วมมือผลิตบุคลากรให้กับสถานประกอบการ/สถานบริการสุขภาพ/หน่วยงานรัฐ/หน่วยงานท้องถิ่น ที่มีความชัดเจนและรับประกันการมีงานทำของผู้รับทุนหลังจบการศึกษาระบุชื่อสถานประกอบการ/สถานบริการสุขภาพ/หน่วยงานรัฐ/หน่วยงานท้องถิ่น " + `I0000`+"\n"+
+                    "ผลลัพธ์ที่คาดหวังจากการทำความร่วมมือ "+ `I0000`
+                ],
+            )
+            
+            const tableA = {
+                headers: [
+                    { label: "ชื่อหลักสูตรที่รับการอนุมัติจาก\nหน่วยงานต้นสังกัดที่ต้องการ\nยื่นเสนอขอ", headerAlign: "center", align: "left" },
+                    { label: "การอนุมัติหลักสูตร", headerAlign: "center", align: "left" },
+                    { label: "หลักสูตร", headerAlign: "center", align: "left" },
+                ],
+                rows: DataTableA,
+            };
+            let cosize = [cov(50),cov(50),cov(160)]
+            doc.font(Bold).fontSize(12).fillColor('black');
+            let xr = 0
+            let i = 0
+            let stIndex = cov(20)
+            await doc.table(tableA, {
+                prepareHeader: (x) => {
+                    doc.font(Bold).fontSize(12).fillColor('black').stroke('black')
+                },
+                prepareRow: async (row, indexColumn, indexRow, rectRow, rectCell) => {
+                    doc.font(ThS).fontSize(12).fillColor('black').stroke('black')
+                },
+                columnsSize: cosize,
+                x: cov(20), y: doc.y
+            });
+
+
+
+            chkPage++
+        }
+
+
+        doc.end();
+
+
+        let finalString = '';
+        let stream = doc.pipe(new Base64Encode());
+
+        stream.on('data', function (chunk) {
+            finalString += chunk;
+        });
+
+        const base64 = await new Promise((resolve, reject) => {
+            stream.on('end', () => {
+                resolve(finalString)
+            })
+        })
+
+        return base64
+
+    } catch (error) {
+        console.log(error)
+        return null
+    }
+};
+
+
+export const PDF6 = async (req) => {
+    try {
+        const Bold = 'font/THSarabunNew Bold.ttf';
+        const BoldItalic = 'font/THSarabunNew BoldItalic.ttf';
+        const Italic = 'font/THSarabunNew Italic.ttf';
+        const ThS = 'font/THSarabunNew.ttf';
+
+
+        let s = {};
+
+        const border = 'ffffff';
+
+        let x;
+        let y = 0;
+
+        let doc = new PDFDocument({
+            size: 'A4',
+            layout: `landscape`,
+            margins: {
+                top: 50,
+                bottom: 0,
+                left: 72,
+                right: 72,
+            }
+        });
+
+        const pipeLine = true;
+        if(pipeLine){
+            let testFooter = -10
+            for (let fi =0 ; fi <= 30; fi++){
+                s = { "x": testFooter+=10, "y": 0, "w": 10, "h": 300, "bd": border }
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']), cov(s['y'] ), { width: cov(s['w']), height: cov(s['h']), align: 'left' });
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']), cov(s['y'] + 75), { width: cov(s['w']), height: cov(s['h']), align: 'left' });
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']), cov(s['y'] + 150), { width: cov(s['w']), height: cov(s['h']), align: 'left' });
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']), cov(s['y'] + 225), { width: cov(s['w']), height: cov(s['h']), align: 'left' });
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']), cov(s['y'] + 290), { width: cov(s['w']), height: cov(s['h']), align: 'left' });
+                doc.rect(cov(s['x']), cov(s['y']), cov(s['w']), cov(s['h'])).dash(1, { space: 1.5 }).stroke("#c4c2c2");
+            }
+            testFooter = -10
+            for (let fi =0 ; fi <= 30; fi++){
+                s = { "x": 0, "y": testFooter+=10, "w": 300, "h": 10, "bd": border }
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']), cov(s['y']), { width: cov(10), height: cov(s['h']), align: 'left' });
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']+50), cov(s['y']), { width: cov(10), height: cov(s['h']), align: 'left' });
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']+100), cov(s['y']), { width: cov(10), height: cov(s['h']), align: 'left' });
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']+150), cov(s['y']), { width: cov(10), height: cov(s['h']), align: 'left' });
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']+200), cov(s['y']), { width: cov(10), height: cov(s['h']), align: 'left' });
+                doc.rect(cov(s['x']), cov(s['y']), cov(s['w']), cov(s['h'])).dash(1, { space: 1.5 }).stroke("#c4c2c2");
+            }
+        }
+
+
+        doc.lineWidth(0).stroke('black');
+        s = { "x": 20, "y": 20, "w": 5, "h": 6.5, "bd": border }
+        doc.font(Bold).fillColor("black").text('6.', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left' });
+        s = { "x": s['x'] + s['w'], "y": s['y'], "w": 38, "h": 6.5, "bd": border }
+        doc.font(Bold).fontSize(14).fillColor('black').text("สถานที่ที่จะดำเนินการสอน", cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0 });
+        s = { "x": s['x'] + s['w'], "y": s['y'], "w": 200, "h": 6.5, "bd": border }
+        doc.font(Italic).fontSize(14).fillColor('black').text("(แยกรายหลักสูตรสาขาที่ต้องการยื่นเสนอขอ) (ระบุสถานที่จัดการเรียนการสอน สถานศึกษา… ตำบล…อำเภอ…จังหวัด….)", cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0 });
+        
+            let DataTableA = [];
+           
+            DataTableA.push(
+                [
+                    "หลักสูตรประกาศนียบัตรผู้ช่วยพยาบาล",
+                    "",
+                    "",
+                    "",
+                    ""
+                ],[
+                    "หลักสูตรประกาศนียบัตรผู้ช่วยทันตแพทย์",
+                    "",
+                    "",
+                    "",
+                    ""
+                ],[
+                    "หลักสูตรระยะสั้นประกาศนียบัตรพนักงานให้การดูแล",
+                    "",
+                    "",
+                    "",
+                    ""
+                ],
+            )
+            
+            const tableA = {
+                headers: [
+                    { label: "ชื่อหลักสูตรสาขาที่เสนอ", headerAlign: "center", align: "left" },
+                    { label: "ชื่อสถานที่จัดการเรียนการสอน", headerAlign: "center", align: "left" },
+                    { label: "ตำบล", headerAlign: "center", align: "left" },
+                    { label: "อำเภอ", headerAlign: "center", align: "left" },
+                    { label: "จังหวัด", headerAlign: "center", align: "left" },
+                ],
+                rows: DataTableA,
+            };
+            let cosize = [cov(60),cov(110),cov(30),cov(30),cov(30)]
+            doc.font(Bold).fontSize(12).fillColor('black');
+            let xr = 0
+            let i = 0
+            let stIndex = cov(20)
+            await doc.table(tableA, {
+                prepareHeader: (x) => {
+                    doc.font(Bold).fontSize(12).fillColor('black').stroke('black')
+                },
+                prepareRow: async (row, indexColumn, indexRow, rectRow, rectCell) => {
+                    doc.font(ThS).fontSize(12).fillColor('black').stroke('black')
+                },
+                columnsSize: cosize,
+                x: cov(20), y: doc.y
+            });
+
+
+        doc.end();
+
+
+        let finalString = '';
+        let stream = doc.pipe(new Base64Encode());
+
+        stream.on('data', function (chunk) {
+            finalString += chunk;
+        });
+
+        const base64 = await new Promise((resolve, reject) => {
+            stream.on('end', () => {
+                resolve(finalString)
+            })
+        })
+
+        return base64
+
+    } catch (error) {
+        console.log(error)
+        return null
+    }
+};
+
+
+export const PDF7 = async (req) => {
+    try {
+        const Bold = 'font/THSarabunNew Bold.ttf';
+        const BoldItalic = 'font/THSarabunNew BoldItalic.ttf';
+        const Italic = 'font/THSarabunNew Italic.ttf';
+        const ThS = 'font/THSarabunNew.ttf';
+
+
+        let s = {};
+
+        const border = 'ffffff';
+
+        let x;
+        let y = 0;
+
+        let doc = new PDFDocument({
+            size: 'A4',
+            layout: `landscape`,
+            margins: {
+                top: 50,
+                bottom: 0,
+                left: 72,
+                right: 72,
+            }
+        });
+
+        const pipeLine = true;
+        if(pipeLine){
+            let testFooter = -10
+            for (let fi =0 ; fi <= 30; fi++){
+                s = { "x": testFooter+=10, "y": 0, "w": 10, "h": 300, "bd": border }
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']), cov(s['y'] ), { width: cov(s['w']), height: cov(s['h']), align: 'left' });
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']), cov(s['y'] + 75), { width: cov(s['w']), height: cov(s['h']), align: 'left' });
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']), cov(s['y'] + 150), { width: cov(s['w']), height: cov(s['h']), align: 'left' });
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']), cov(s['y'] + 225), { width: cov(s['w']), height: cov(s['h']), align: 'left' });
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']), cov(s['y'] + 290), { width: cov(s['w']), height: cov(s['h']), align: 'left' });
+                doc.rect(cov(s['x']), cov(s['y']), cov(s['w']), cov(s['h'])).dash(1, { space: 1.5 }).stroke("#c4c2c2");
+            }
+            testFooter = -10
+            for (let fi =0 ; fi <= 30; fi++){
+                s = { "x": 0, "y": testFooter+=10, "w": 300, "h": 10, "bd": border }
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']), cov(s['y']), { width: cov(10), height: cov(s['h']), align: 'left' });
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']+50), cov(s['y']), { width: cov(10), height: cov(s['h']), align: 'left' });
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']+100), cov(s['y']), { width: cov(10), height: cov(s['h']), align: 'left' });
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']+150), cov(s['y']), { width: cov(10), height: cov(s['h']), align: 'left' });
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']+200), cov(s['y']), { width: cov(10), height: cov(s['h']), align: 'left' });
+                doc.rect(cov(s['x']), cov(s['y']), cov(s['w']), cov(s['h'])).dash(1, { space: 1.5 }).stroke("#c4c2c2");
+            }
+        }
+
+
+        doc.lineWidth(0).stroke('black');
+        s = { "x": 20, "y": 20, "w": 5, "h": 6.5, "bd": border }
+        doc.font(Bold).fillColor("black").text('7.3', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left' });
+        s = { "x": s['x'] + s['w'], "y": s['y'], "w": 180, "h": 6.5, "bd": border }
+        doc.font(Bold).fontSize(14).fillColor('black').text("สถานศึกษามีแนวทางในการพัฒนาระบบดูแลความเป็นอยู่และสวัสดิภาพของผู้เรียนให้สามารถเรียนจบตามกำหนดเวลาอย่างไร", cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.24 });
+        s = { "x": s['x'] + s['w'], "y": s['y'], "w": 85, "h": 6.5, "bd": border }
+        doc.font(Italic).fontSize(14).fillColor('black').text("(ทั้งแนวทางและกลไกในการติดตามดูแล ป้องกัน เฝ้าระวัง", cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.07 });
+        s = { "x": 20, "y": s['y'] + s['h'], "w": 260, "h": 6.5, "bd": border }
+        doc.font(Italic).fontSize(14).fillColor('black').text("และให้คำปรึกษาแก่ผู้รับทุน รวมถึงการประสานงานอย่างใกล้ชิดกับพ่อแม่ ผู้ปกครองตลอดระยะเวลาของการศึกษา รวมถึงแสดงวิธีการที่จะส่งเสริมคุณภาพชีวิตและการเรียนรู้ของผู้รับทุน", cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.39});
+        s = { "x": 20, "y": s['y'] + s['h'], "w": 260, "h": 6.5, "bd": border }
+        doc.font(Italic).fontSize(14).fillColor('black').text("อย่างมีประสิทธิภาพทั้งด้านร่างกาย จิตใจ อารมณ์ และสังคม)", cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.39});
+        s = { "x": 25, "y": s['y'] + s['h'], "w": 260, "h": 6.5, "bd": border }
+        doc.font(Bold).fillColor("black").text('๗.๓.๑ การจัดหอพักและระบบดูแลที่ดีและเอื้อต่อการเรียนรู้ โดยคำนึงถึงราคาที่เหมาะสมและความปลอดภัย', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left' });
+        s = { "x": 25, "y": s['y'] + s['h'], "w": 260, "h": 6.5, "bd": border }
+        doc.font(ThS).fillColor("black").text('๗.๓.๑.๑ สถานศึกษาของท่านสามารถจัดหอพักที่มีของสถานศึกษาสำหรับนักศึกษาผู้รับทุนของโครงการฯ เป็นการเฉพาะได้หรือไม่', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left' });
+        
+        s = { "x": 35, "y": s['y'] + s['h'], "w": 80, "h": 6.5, "bd": border }
+        doc.font(Bold).fontSize(14).fillColor("black").text('มี เพียงพอกับจำนวนนักศึกษาทุน', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left' });
+        doc.lineJoin('miter').rect(cov(25), cov(s['y']), cov(5), cov(5)).stroke();
+        
+        s = { "x": s['x'] + s['w'], "y": s['y'], "w": 80, "h": 6.5, "bd": border }
+        doc.font(Bold).fontSize(14).fillColor("black").text('มี เพียงพอกับจำนวนนักศึกษาทุน', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left' });
+        doc.lineJoin('miter').rect(cov(105), cov(s['y']), cov(5), cov(5)).stroke();
+       
+        s = { "x": s['x'] + s['w'], "y": s['y'], "w": 10, "h": 6.5, "bd": border }
+        doc.font(Bold).fontSize(14).fillColor("black").text('ไม่มี', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left' });
+        doc.lineJoin('miter').rect(cov(185), cov(s['y']), cov(5), cov(5)).stroke();
+        s = { "x": s['x'] + s['w'], "y": s['y'], "w": 85, "h": 6.5, "bd": border }
+        doc.font(Italic).fontSize(14).fillColor('black').text("(โปรดระบุวิธีการบริหารจัดการด้านล่าง)", cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.07 });
+        
+                
+
+            let DataTableA = [];
+           
+            DataTableA.push(
+                [
+                    "หอพักกลางของสถานศึกษา\n"+"[ ] หอพักรวม\n"+"[ ] หอชายล้วน\n"+"[ ] หอหญิงล้วน\n"+"[ ] อื่น ๆ โปรดระบุ "+`I000`+"\n",
+                    "[ ] บ้านพัก\n"+"[ ] หอพัก จำนวน "+`I0000`+" ชั้น\n"+"[ ] ห้องน้ำในตัว\n"+"[ ] ห้องน้ำรวม\n"+"[ ] อื่น ๆ โปรดระบุ "+`I000`+"\n",
+                    "",
+                    "",
+                ],
+                [
+                    "หอพักของสาขา\n"+"[ ] หอพักรวม\n"+"[ ] หอชายล้วน\n"+"[ ] หอหญิงล้วน\n"+"[ ] อื่น ๆ โปรดระบุ "+`I000`+"\n",
+                    "[ ] บ้านพัก\n"+"[ ] หอพัก จำนวน "+`I0000`+" ชั้น\n"+"[ ] ห้องน้ำในตัว\n"+"[ ] ห้องน้ำรวม\n"+"[ ] อื่น ๆ โปรดระบุ "+`I000`+"\n",
+                    "",
+                    "",
+                ],
+                [
+                    "ราคาค่าหอพัก/เดือน/คน ",
+                    `I0000`+" บาท/เดือน/คน",
+                    "",
+                    "",
+                ],
+                [
+                    "อื่น ๆ ระบุ",
+                    "",
+                    "",
+                    "",
+                ]
+            )
+            
+            const tableA = {
+                headers: [
+                    { label: "ประเภทหอพัก", headerAlign: "center", align: "left" },
+                    { label: "รายละเอียดหอพัก", headerAlign: "center", align: "left" },
+                    { label: "จำนวนห้องที่รองรับผู้รับทุน(ปี ๒๕๖๘) (ห้อง)", headerAlign: "center", align: "left" },
+                    { label: "จำนวนผู้รับทุน(ปี ๒๕๖๘) ที่รองรับได้ (คน)", headerAlign: "center", align: "left" },
+                ],
+                rows: DataTableA,
+            };
+            let cosize = [cov(65),cov(65),cov(65),cov(65)]
+            doc.font(Bold).fontSize(12).fillColor('black');
+            let xr = 0
+            let i = 0
+            let stIndex = cov(20)
+            await doc.table(tableA, {
+                prepareHeader: (x) => {
+                    doc.font(Bold).fontSize(12).fillColor('black').stroke('black')
+                },
+                prepareRow: async (row, indexColumn, indexRow, rectRow, rectCell) => {
+                    doc.font(ThS).fontSize(12).fillColor('black').stroke('black')
+                },
+                columnsSize: cosize,
+                x: cov(20), y: doc.y + 12
+            });
+
+            s = { "x": 20, "y": voc(doc.y), "w": 90, "h": 6.5, "bd": border }
+            doc.font(Italic).fontSize(14).fillColor('black').text("โปรดระบุ : หอพัก ๑ ห้อง จะสามารถจัดให้ผู้รับทุนอาศัยอยู่ได้ จำนวน", cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0});
+            doc.moveTo(cov(20), cov(s['y'] + s['h'] - 1)).lineTo(cov(35), cov(s['y'] + s['h'] - 1)).dash(1, { space: 0.01 }).stroke()
+            s = { "x": s['x'] + s['w'], "y": s['y'], "w": 25, "h": 6.5, "bd": border }
+            doc.font(ThS).fontSize(14).fillColor('black').text(`I0041`, cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'center', characterSpacing: 0 });
+            doc.moveTo(cov(s['x']), cov(s['y'] + s['h'] - 2)).lineTo(cov(s['x'] + s['w']), cov(s['y'] + s['h'] - 2)).dash(1, { space: 1.5 }).stroke()
+            s = { "x": s['x'] + s['w'], "y": s['y'], "w": 73, "h": 6.5, "bd": border }
+            doc.font(ThS).fontSize(14).fillColor('black').text("คน อาจารย์ผู้ดูแลหอพัก สัดส่วน ครู : ผู้รับทุนในหอพัก", cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0 });
+            s = { "x": s['x'] + s['w'], "y": s['y'], "w": 25, "h": 6.5, "bd": border }
+            doc.font(ThS).fontSize(14).fillColor('black').text(`I0041`, cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'center', characterSpacing: 0 });
+            doc.moveTo(cov(s['x']), cov(s['y'] + s['h'] - 2)).lineTo(cov(s['x'] + s['w']), cov(s['y'] + s['h'] - 2)).dash(1, { space: 1.5 }).stroke()
+            s = { "x": s['x'] + s['w'], "y": s['y'], "w": 2, "h": 6.5, "bd": border }
+            doc.font(ThS).fontSize(14).fillColor('black').text(":", cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0 });
+            s = { "x": s['x'] + s['w'], "y": s['y'], "w": 25, "h": 6.5, "bd": border }
+            doc.font(ThS).fontSize(14).fillColor('black').text(`I0041`, cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'center', characterSpacing: 0 });
+            doc.moveTo(cov(s['x']), cov(s['y'] + s['h'] - 2)).lineTo(cov(s['x'] + s['w']), cov(s['y'] + s['h'] - 2)).dash(1, { space: 1.5 }).stroke()
+            
+            s = { "x": 20, "y": voc(doc.y), "w": 190, "h": 6.5, "bd": border }
+            doc.font(Italic).fontSize(14).fillColor('black').text("โปรดแนบแผนผังและภาพถ่ายหอพักนักศึกษา และประกาศอัตราการเรียกเก็บค่าเช่าหอพักและค่าสาธารณูปโภค ระยะทางจากหอพักถึงสถานศึกษา …………. กิโลเมตร", cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0});
+            s = { "x": s['x'] + s['w'], "y": s['y'], "w": 25, "h": 6.5, "bd": border }
+            doc.font(ThS).fontSize(14).fillColor('black').text(`I0041`, cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'center', characterSpacing: 0 });
+            doc.moveTo(cov(s['x']), cov(s['y'] + s['h'] - 2)).lineTo(cov(s['x'] + s['w']), cov(s['y'] + s['h'] - 2)).dash(1, { space: 1.5 }).stroke()
+            s = { "x": s['x'] + s['w'], "y": s['y'], "w": 25, "h": 6.5, "bd": border }
+            doc.font(ThS).fontSize(14).fillColor('black').text(`กิโลเมตร`, cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0 });
+            
+
+        doc.end();
+
+
+        let finalString = '';
+        let stream = doc.pipe(new Base64Encode());
+
+        stream.on('data', function (chunk) {
+            finalString += chunk;
+        });
+
+        const base64 = await new Promise((resolve, reject) => {
+            stream.on('end', () => {
+                resolve(finalString)
+            })
+        })
+
+        return base64
+
+    } catch (error) {
+        console.log(error)
+        return null
+    }
+};
+
+
+
+
+
+export const PDFAprrove = async (req) => {
+
+    try {
+
+        const Bold = 'font/THSarabunNew Bold.ttf';
+        const BoldItalic = 'font/THSarabunNew BoldItalic.ttf';
+        const Italic = 'font/THSarabunNew Italic.ttf';
+        const ThS = 'font/THSarabunNew.ttf';
+
+
+
+        let s = {};
+
+        const border = 'ffffff';
+
+        let x;
+        let y = 0;
+
+        let doc = new PDFDocument({
+            size: 'A4',
+            layout: `portrait`,
+            // layout: `landscape`,
+            margins: {
+                top: 50,
+                bottom: 0,
+                left: 72,
+                right: 72,
+            }
+        });
+
+        const pipeLine = false;
+        if(pipeLine){
+            let testFooter = -10
+            for (let fi =0 ; fi <= 30; fi++){
+                s = { "x": testFooter+=10, "y": 0, "w": 10, "h": 300, "bd": border }
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']), cov(s['y'] ), { width: cov(s['w']), height: cov(s['h']), align: 'left' });
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']), cov(s['y'] + 75), { width: cov(s['w']), height: cov(s['h']), align: 'left' });
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']), cov(s['y'] + 150), { width: cov(s['w']), height: cov(s['h']), align: 'left' });
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']), cov(s['y'] + 225), { width: cov(s['w']), height: cov(s['h']), align: 'left' });
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']), cov(s['y'] + 290), { width: cov(s['w']), height: cov(s['h']), align: 'left' });
+                doc.rect(cov(s['x']), cov(s['y']), cov(s['w']), cov(s['h'])).dash(1, { space: 1.5 }).stroke("#c4c2c2");
+            }
+            testFooter = -10
+            for (let fi =0 ; fi <= 30; fi++){
+                s = { "x": 0, "y": testFooter+=10, "w": 300, "h": 10, "bd": border }
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']), cov(s['y']), { width: cov(10), height: cov(s['h']), align: 'left' });
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']+50), cov(s['y']), { width: cov(10), height: cov(s['h']), align: 'left' });
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']+100), cov(s['y']), { width: cov(10), height: cov(s['h']), align: 'left' });
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']+150), cov(s['y']), { width: cov(10), height: cov(s['h']), align: 'left' });
+                doc.font(ThS).fillColor("#black").text(`${testFooter}`, cov(s['x']+200), cov(s['y']), { width: cov(10), height: cov(s['h']), align: 'left' });
+                doc.rect(cov(s['x']), cov(s['y']), cov(s['w']), cov(s['h'])).dash(1, { space: 1.5 }).stroke("#c4c2c2");
+            }
+        }
+
+        doc.lineWidth(0).stroke('black');
+        s = { "x": 20, "y": 20, "w": 170, "h": 8, "bd": border }
+        doc.fontSize(14).font(Bold).fillColor("black").text('ส่วนที่ ๓ คำรับรอง', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'center' });
+        doc.moveTo(cov(92), cov(s['y'] + s['h'] - 3.5)).lineTo(cov(s['x'] + s['w'] - 72), cov(s['y'] + s['h'] - 3.5)).dash(1, { space: 0.01 }).stroke()
+        
+        s = { "x": 30, "y": s['y'] + s['h']+5, "w": 12, "h": 8, "bd": border }
+        doc.font(ThS).fillColor("black").text('ข้าพเจ้า', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left' });
+        s = { "x": s['x'] + s['w'], "y": s['y'], "w": 137, "h": 8, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor('black').text(`I0100`, cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'center', characterSpacing: 0 });
+        doc.moveTo(cov(s['x']), cov(s['y'] + s['h'] - 2)).lineTo(cov(s['x'] + s['w']), cov(s['y'] + s['h'] - 2)).dash(1, { space: 1.5 }).stroke()
+        s = { "x": s['x'] + s['w'], "y": s['y'], "w": 11, "h": 8, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor('black').text(`ได้ศึกษา`, cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0 });
+        
+
+        s = { "x": 20, "y": s['y'] + s['h'], "w": 170, "h": 8, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('ประกาศสำนักงาน กสศ. เรื่อง เปิดรับโครงการทุนนวัตกรรมสายอาชีพชั้นสูง ปีการศึกษา ๒๕๖๗ รวมถึงแนวทางและเงื่อนไข', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.32 }).undash();
+       
+        s = { "x": 20, "y": s['y'] + s['h'], "w": 170, "h": 8, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('การสนับสนุนการดำเนินงานโครงการของ กสศ. โดยละเอียดแล้ว และขอรับรองว่า', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0 }).undash();
+       
+        s = { "x": 30, "y": s['y'] + s['h']+5, "w": 170, "h": 8, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('(๑) ข้อความ ข้อมูล และรายละเอียดต่าง ๆ ที่ข้าพเจ้าได้ให้ไว้ในแบบเสนอโครงการเป็นความจริง ทุกประการ', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.67 }).undash();
+       
+        s = { "x": 20, "y": s['y'] + s['h'], "w": 170, "h": 8, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('ซึ่งหากระหว่างการพิจารณาคัดเลือกข้อเสนอโครงการนี้กสศ. ตรวจพบว่ามีข้อความ ข้อมูล หรือ รายละเอียดต่าง ๆอื่นใดเป็นเท็จ', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.185 }).undash();
+       
+        s = { "x": 20, "y": s['y'] + s['h'], "w": 170, "h": 8, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('หรือปกปิดข้อความจริงอันควรแจ้งให้ทราบ โครงการจะไม่ได้รับการพิจารณาและในกรณีมีการอนุมัติและเบิกจ่ายเงิน', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.63 }).undash();
+       
+        s = { "x": 20, "y": s['y'] + s['h'], "w": 170, "h": 8, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('ให้แก่โครงการแล้วข้าพเจ้าจะชำระเงินดังกล่าวคืนให้แก่ กสศ. เต็มจำนวน', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0 }).undash();
+       
+
+        s = { "x": 30, "y": s['y'] + s['h'], "w": 170, "h": 8, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('(๒) แบบข้อเสนอโครงการนี้ จัดทำขึ้นเพื่อขอรับทุนการสนับสนุนจาก กสศ. เป็นการเฉพาะ ไม่ได้ทำขึ้นเพื่อขอรับการสนับสนุน', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0 }).undash();
+        s = { "x": 20, "y": s['y'] + s['h'], "w": 170, "h": 8, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('งบประมาณจากรัฐ เอกชน หรือหน่วยงานอื่นใดในลักษณะรายการของบประมาณซ้ำซ้อน', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.185 }).undash();
+       
+        s = { "x": 30, "y": s['y'] + s['h'], "w": 170, "h": 8, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('(๓) ขอรับรองว่าแบบเสนอโครงการไม่ได้เกิดจากการคัดลอก ดัดแปลง เอกสารที่เป็นลิขสิทธิ์ใดๆ อย่างไม่ถูกต้องตามกฎหมาย', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.04 }).undash();
+        
+        s = { "x": 30, "y": s['y'] + s['h'], "w": 170, "h": 8, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('(๔) ผลงาน เอกสาร และข้อมูลอื่นใด ที่ข้าพเจ้าส่งมอบให้แก่ กสศ. ทั้งหมดเป็นกรรมสิทธิ์ตามกฎหมายโดยชอบของ กสศ.', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.2 }).undash();
+        
+        s = { "x": 30, "y": s['y'] + s['h'], "w": 170, "h": 8, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('(๕) ข้าพเจ้าได้ตรวจสอบความถูกต้อง ครบถ้วน ของเอกสารเพื่อนำส่งแบบเสนอโครงการตามรายการเอกสารด้านล่าง', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.35 }).undash();
+        s = { "x": 20, "y": s['y'] + s['h'], "w": 170, "h": 8, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('อย่างครบถ้วนแล้ว', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.185 }).undash();
+       
+        s = { "x": 30, "y": s['y'] + s['h'], "w": 170, "h": 8, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('(๖) ข้าพเจ้ายอมรับผลการพิจารณาแบบเสนอโครงการของ กสศ. และยอมรับว่าการพิจารณาตัดสินของ กสศ. ถือเป็นที่สุด', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.15 }).undash();
+       
+       
+        s = { "x": 30, "y": s['y'] + s['h'], "w": 170, "h": 8, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('(๗) ข้าพเจ้ารับทราบและยินยอมให้ กสศ. และ/หรือ นิติบุคคลที่ได้รับมอบหมาย บันทึกข้อมูลและใช้ข้อมูลของข้าพเจ้า', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.26 }).undash();
+        s = { "x": 20, "y": s['y'] + s['h'], "w": 170, "h": 8, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('ในการทำธุรกรรมและ/หรือ การใช้บริการของข้าพเจ้า เพื่อประโยชน์ในการ ให้บริการแก่ข้าพเจ้า และ/หรือ เพื่อประโยชน์อื่นใด', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.2 }).undash();
+        s = { "x": 20, "y": s['y'] + s['h'], "w": 170, "h": 8, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('ที่ข้าพเจ้าได้ให้ความยินยอมไว้แก่ กสศ. รวมถึงเพื่อการวิเคราะห์ข้อมูล เสนอให้ใช้ และ/หรือ ปรับปรุงกระบวนการหรือบริการอื่น', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.15 }).undash();
+        s = { "x": 20, "y": s['y'] + s['h'], "w": 170, "h": 8, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('นอกจากนี้ กสศ. อาจใช้ข้อมูลของ ข้าพเจ้าเพื่อการปฏิบัติตามกฎระเบียบต่าง ๆของ กสศ. ข้าพเจ้ามีสิทธิ์ในความเป็นส่วนตัวในข้อมูล', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.03 }).undash();
+        s = { "x": 20, "y": s['y'] + s['h'], "w": 170, "h": 8, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('ของข้าพเจ้าเพื่อการปฏิบัติตามกฎระเบียบต่าง ๆ ของ กสศ. ข้าพเจ้ามีสิทธิ์ในความเป็นส่วนตัวในข้อมูลของข้าพเจ้า กสศ.', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.43 }).undash();
+        s = { "x": 20, "y": s['y'] + s['h'], "w": 170, "h": 8, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('จากข้าพเจ้าตามวัตถุประสงค์ดังกล่าวข้างต้น จะเป็นไปเพื่อประโยชน์แก่ข้าพเจ้าและไม่เป็นการแสวงหาผลกำไรจากการ', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.5 }).undash();
+        s = { "x": 20, "y": s['y'] + s['h'], "w": 170, "h": 8, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('ใช้ข้อมูลดังกล่าวและ กสศ.จะไม่เปิดเผยข้อมูลของข้าพเจ้า ให้แก่บุคคล และ/หรือ นิติบุคคลอื่น เว้นแต่ในกรณีดังต่อไปนี้', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0 }).undash();
+       
+        s = { "x": 30, "y": s['y'] + s['h'], "w": 170, "h": 8, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('-    การเปิดเผยข้อมูลให้แก่บุคลากรผู้ที่ได้รับอนุญาตจาก กสศ. ซึ่ง ได้แก่ บุคลากรในส่วนงานของ กสศ.', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0 }).undash();
+        s = { "x": 30, "y": s['y'] + s['h'], "w": 170, "h": 8, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('-    การเปิดเผยข้อมูลดังกล่าวเป็นไปเพื่อปฏิบัติตามกฎหมาย เพื่อการสอบสวนหรือการดำเนินการทางกฎหมาย', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0 }).undash();
+        s = { "x": 30, "y": s['y'] + s['h'], "w": 170, "h": 8, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('-    การเปิดเผยข้อมูลดังกล่าวเป็นไปตามกฎหมายหรือตามคำสั่งของ หน่วยงานรัฐ หรือหน่วยงานกำกับดูแล กสศ.', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0 }).undash();
+        
+        s = { "x": 30, "y": s['y'] + s['h'], "w": 170, "h": 8, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('-    การเปิดเผยข้อมูลให้แก่บุคคล และ/หรือ นิติบุคคล ที่ กสศ. ได้รับความยินยอมจากข้าพเจ้าตามวัตถุประสงค์ดังกล่าว', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.2 }).undash();
+        
+        s = { "x": 30, "y": s['y'] + s['h'], "w": 170, "h": 8, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('     ข้างต้นจะเป็นไปเพื่อประโยชน์แก่ข้าพเจ้าและไม่เป็นการแสวงหาผลกำไร', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: -0.04 }).undash();
+        
+        s = { "x": 30, "y": s['y'] + s['h'], "w": 170, "h": 8, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('(๘) การยื่นข้อเสนอตามโครงการนี้ ไม่ก่อให้ข้าพเจ้ามีสิทธิเรียกร้องค่าธรรมเนียม ค่าเสียหาย หรือค่าใช้จ่ายอื่นใด', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.47 }).undash();
+        
+        s = { "x": 30, "y": s['y'] + s['h'], "w": 170, "h": 8, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('(๙) ข้าพเจ้าจะเรียกเก็บค่าธรรมเนียมการศึกษาตามหลักสูตรจาก กสศ. เท่านั้น และห้ามสถานศึกษาเรียกเก็บค่าธรรมเนียม', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.11 }).undash();
+        s = { "x": 20, "y": s['y'] + s['h'], "w": 170, "h": 8, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('การศึกษาจากนักศึกษาผู้รับทุน', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0 }).undash();
+        
+
+
+        doc.addPage({
+            size: 'A4',
+            layout: `portrait`,
+            // layout: `landscape`,
+            margins: {
+                top: 50,
+                bottom: 0,
+                left: 72,
+                right: 72,
+            }
+        })
+    
+        s = { "x": 30, "y": 20, "w": 170, "h": 8, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('(๑๐) ผู้บริหาร ผู้รับผิดชอบโครงการ คณะทำงาน ตลอดจนบุคลากรของสถานศึกษาทุกคน ได้ทำความเข้าใจในประกาศ ', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.27 }).undash();
+        s = { "x": 20, "y": s['y'] + s['h'], "w": 170, "h": 8, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('และกฎระเบียบ/หลักเกณฑ์ที่เกี่ยวข้องในการดำเนินงานของ กสศ. และข้อเสนอโครงการฯ ของสถานศึกษาที่เสนอต่อ กสศ.', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.37 }).undash();
+        s = { "x": 20, "y": s['y'] + s['h'], "w": 170, "h": 8, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('อย่างชัดเจนพร้อมจะดำเนินการตามเงื่อนไข ข้อเสนอแนะ และข้อปรับปรุง ของกสศ. และคณะหนุนเสริม เพื่อยกระดับคุณภาพ', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.23 }).undash();
+        s = { "x": 20, "y": s['y'] + s['h'], "w": 170, "h": 8, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('ของโครงการฯ และสถานศึกษาจะดำเนินการ ', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.37 }).undash();
+        
+
+        s = { "x": 120, "y": s['y'] + s['h']+20, "w": 8, "h": 8, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('ลงชื่อ ', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.37 }).undash();
+        s = { "x": s['x'] + s['w'], "y": s['y'], "w": 62, "h": 6.5, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor('black').text(`I0005`, cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'center', characterSpacing: 0 });
+        doc.moveTo(cov(s['x']), cov(s['y'] + s['h'] - 2)).lineTo(cov(s['x'] + s['w']), cov(s['y'] + s['h'] - 2)).dash(1, { space: 1.5 }).stroke()
+        s = { "x": 120, "y": s['y'] + s['h'], "w": 8, "h": 8, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('(', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'right', characterSpacing: 0.37 }).undash();
+        s = { "x": s['x'] + s['w'], "y": s['y'], "w": 62, "h": 6.5, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor('black').text(`I0005`, cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'center', characterSpacing: 0 });
+        doc.moveTo(cov(s['x']), cov(s['y'] + s['h'] - 2)).lineTo(cov(s['x'] + s['w']), cov(s['y'] + s['h'] - 2)).dash(1, { space: 1.5 }).stroke()
+        s = { "x": s['x'] + s['w'], "y": s['y'], "w": 62, "h": 6.5, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor('black').text(`)`, cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0 });
+        s = { "x": 128, "y": s['y'] + s['h'], "w": 62, "h": 8, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('หัวหน้าโครงการ', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'center', characterSpacing: 0.37 }).undash();
+        
+
+        s = { "x": 120, "y": s['y'] + s['h']+10, "w": 8, "h": 8, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('ลงชื่อ ', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.37 }).undash();
+        s = { "x": s['x'] + s['w'], "y": s['y'], "w": 62, "h": 6.5, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor('black').text(`I0005`, cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'center', characterSpacing: 0 });
+        doc.moveTo(cov(s['x']), cov(s['y'] + s['h'] - 2)).lineTo(cov(s['x'] + s['w']), cov(s['y'] + s['h'] - 2)).dash(1, { space: 1.5 }).stroke()
+        s = { "x": 120, "y": s['y'] + s['h'], "w": 8, "h": 8, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('(', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'right', characterSpacing: 0.37 }).undash();
+        s = { "x": s['x'] + s['w'], "y": s['y'], "w": 62, "h": 6.5, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor('black').text(`I0005`, cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'center', characterSpacing: 0 });
+        doc.moveTo(cov(s['x']), cov(s['y'] + s['h'] - 2)).lineTo(cov(s['x'] + s['w']), cov(s['y'] + s['h'] - 2)).dash(1, { space: 1.5 }).stroke()
+        s = { "x": s['x'] + s['w'], "y": s['y'], "w": 62, "h": 6.5, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor('black').text(`)`, cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0 });
+        s = { "x": 128, "y": s['y'] + s['h'], "w": 62, "h": 8, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('ผู้รับผิดชอบโครงการ', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'center', characterSpacing: 0.37 }).undash();
+        
+
+        s = { "x": 120, "y": s['y'] + s['h']+10, "w": 8, "h": 8, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('ลงชื่อ ', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0.37 }).undash();
+        s = { "x": s['x'] + s['w'], "y": s['y'], "w": 62, "h": 6.5, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor('black').text(`I0005`, cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'center', characterSpacing: 0 });
+        doc.moveTo(cov(s['x']), cov(s['y'] + s['h'] - 2)).lineTo(cov(s['x'] + s['w']), cov(s['y'] + s['h'] - 2)).dash(1, { space: 1.5 }).stroke()
+        s = { "x": 120, "y": s['y'] + s['h'], "w": 8, "h": 8, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('(', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'right', characterSpacing: 0.37 }).undash();
+        s = { "x": s['x'] + s['w'], "y": s['y'], "w": 62, "h": 6.5, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor('black').text(`I0005`, cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'center', characterSpacing: 0 });
+        doc.moveTo(cov(s['x']), cov(s['y'] + s['h'] - 2)).lineTo(cov(s['x'] + s['w']), cov(s['y'] + s['h'] - 2)).dash(1, { space: 1.5 }).stroke()
+        s = { "x": s['x'] + s['w'], "y": s['y'], "w": 62, "h": 6.5, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor('black').text(`)`, cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'left', characterSpacing: 0 });
+        s = { "x": 128, "y": s['y'] + s['h'], "w": 62, "h": 8, "bd": border }
+        doc.font(ThS).fontSize(14).fillColor("black").text('ผู้บริหารสถานศึกษา', cov(s['x']), cov(s['y']), { width: cov(s['w']), height: cov(s['h']), align: 'center', characterSpacing: 0.37 }).undash();
+        
+
+        // 
+        // 
+        //  
+        // 
+
+
+        doc.end();
+
+
+        let finalString = '';
+        let stream = doc.pipe(new Base64Encode());
+
+        stream.on('data', function (chunk) {
+            finalString += chunk;
+        });
+
+        const base64 = await new Promise((resolve, reject) => {
+            stream.on('end', () => {
+                resolve(finalString)
+            })
+        })
+
+        return base64
+
+    } catch (error) {
+        console.log(error)
+    }
+};
+
+
+
+
+
 //-------------------------- คำรับรองห้ามแก้ --------------------------//
 export const PdfSp1 = async (req, res) => {
     const u_id = req.params.u_id
@@ -2589,7 +3413,7 @@ export const TestPdf2025 = async (req, res) => {
     // const u_type = req.params.u_type
     // const u_type2 = req.params.u_type2
     // const data = await getData(u_id, u_type, u_type2);
-    const pdfBase64 = await PDF3("data");
+    const pdfBase64 = await PDFAprrove("data");
     res.send("<iframe width='100%' download='browser.pdf' height='100%' src='data:application/pdf;base64," + pdfBase64 + "'></iframe>")
 }
 
