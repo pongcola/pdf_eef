@@ -1,0 +1,47 @@
+name: Crowd Ages APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'game/**'
+      - '.github/workflows/crowd-ages-apk.yml'
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: game
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: game/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web game
+        run: npm run build
+
+      - name: Sync to Android project
+        run: npx cap sync android
+
+      - name: Build APK
+        working-directory: game/android
+        run: ./gradlew assembleRelease --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CrowdAges-apk
+          path: game/android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error

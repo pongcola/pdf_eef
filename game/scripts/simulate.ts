@@ -31,7 +31,7 @@ function playLevel(level: number, up: Up, skill: number, failStreak: number) {
     stomp += dt;
     if (stomp >= BOSS_STOMP_INTERVAL) {
       stomp = 0;
-      n -= Math.max(1, Math.ceil(n * BOSS_STOMP_KILL));
+      n -= Math.max(1, Math.ceil(n * BOSS_STOMP_KILL * (1 + t / 8)));
     }
   }
   return { win: hp <= 0, n: Math.max(0, n), L, progress: 1, t };

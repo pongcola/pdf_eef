@@ -615,7 +615,8 @@ export class Game {
       boss.stomp();
     }
     if (boss.update(dt, this.t)) {
-      const kill = Math.max(1, Math.ceil(this.crowd.count * BOSS_STOMP_KILL));
+      // บอสยิ่งสู้นานยิ่งโกรธ ไฟต์จะได้ไม่ยืดเยื้อ
+      const kill = Math.max(1, Math.ceil(this.crowd.count * BOSS_STOMP_KILL * (1 + this.bossTime / 8)));
       const lost = this.crowd.removePeople(kill, 'random');
       for (const p of lost) this.particles.burst(p.x, 0.6, p.z, PLAYER_COLOR, 3, 5);
       sfx.stomp();
