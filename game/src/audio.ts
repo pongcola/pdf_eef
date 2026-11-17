@@ -9,6 +9,8 @@ let musicTimer: number | null = null;
 let nextNoteTime = 0;
 let step = 0;
 let lastPop = 0;
+let lastShot = 0;
+let lastTick = 0;
 let unlocked = false;
 
 function ensure(): AudioContext | null {
@@ -135,6 +137,29 @@ export const sfx = {
     if (!sfxOn) return;
     tone(988, 988, 0.06, 'square', 0.1);
     tone(1318, 1318, 0.14, 'square', 0.1, 0.06);
+  },
+  shoot() {
+    if (!sfxOn || !ctx) return;
+    const now = ctx.currentTime;
+    if (now - lastShot < 0.08) return;
+    lastShot = now;
+    tone(700 + Math.random() * 200, 380, 0.04, 'triangle', 0.035);
+  },
+  tick() {
+    if (!sfxOn || !ctx) return;
+    const now = ctx.currentTime;
+    if (now - lastTick < 0.06) return;
+    lastTick = now;
+    tone(1250, 1250, 0.03, 'square', 0.03);
+  },
+  breakBlock() {
+    if (!sfxOn) return;
+    noise(0.22, 0.32, 1400);
+    tone(220, 70, 0.18, 'square', 0.1);
+  },
+  join() {
+    if (!sfxOn) return;
+    [660, 880, 1175].forEach((f, i) => tone(f, f, 0.1, 'triangle', 0.14, i * 0.06));
   },
   evolve() {
     if (!sfxOn) return;

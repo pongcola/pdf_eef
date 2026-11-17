@@ -29,6 +29,7 @@ async function boot(): Promise<void> {
     menu: () => game?.quitToMenu(),
     toggle: (k) => game?.toggleSetting(k),
     reset: () => game?.resetProgress(),
+    wheel: (m) => game?.claimWheel(m) ?? 0,
   });
   game = new Game(canvas, ui);
   ui.renderSettings(game.save.settings);

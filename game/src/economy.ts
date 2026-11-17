@@ -1,9 +1,10 @@
-export type UpgradeId = 'start' | 'power' | 'income';
+export type UpgradeId = 'troop' | 'capacity' | 'power' | 'economy';
 
 export interface UpgradeDef {
   id: UpgradeId;
   nameTh: string;
   icon: string;
+  color: string;
   baseCost: number;
   growth: number;
   describe: (lvl: number) => string;
@@ -11,29 +12,37 @@ export interface UpgradeDef {
 
 export const UPGRADES: readonly UpgradeDef[] = [
   {
-    id: 'start', nameTh: 'กำลังพลเริ่มต้น', icon: '👥', baseCost: 40, growth: 1.28,
-    describe: (lvl) => `เริ่ม ${startCrowd(lvl)} คน`,
+    id: 'troop', nameTh: 'เพิ่มทหาร', icon: '🧍', color: '#c04bd9', baseCost: 45, growth: 1.32,
+    describe: (lvl) => `เริ่ม ${startTroops(lvl)} คน`,
   },
   {
-    id: 'power', nameTh: 'พลังโจมตี', icon: '⚔️', baseCost: 60, growth: 1.32,
-    describe: (lvl) => `พลัง ×${playerPower(lvl).toFixed(2)}`,
+    id: 'capacity', nameTh: 'ความจุ', icon: '🏕️', color: '#3f8cff', baseCost: 40, growth: 1.28,
+    describe: (lvl) => `สูงสุด ${capacity(lvl)} คน`,
   },
   {
-    id: 'income', nameTh: 'รายได้', icon: '🪙', baseCost: 80, growth: 1.35,
-    describe: (lvl) => `เหรียญ ×${incomeMult(lvl).toFixed(2)}`,
+    id: 'power', nameTh: 'พลังโจมตี', icon: '⚔️', color: '#ff8a1f', baseCost: 55, growth: 1.3,
+    describe: (lvl) => `ดาเมจ ×${playerPower(lvl).toFixed(2)}`,
+  },
+  {
+    id: 'economy', nameTh: 'รายได้', icon: '💰', color: '#2fbf63', baseCost: 60, growth: 1.33,
+    describe: (lvl) => `เหรียญ ×${incomeMult(lvl).toFixed(1)}`,
   },
 ];
 
-export function startCrowd(lvl: number): number {
-  return 6 + lvl * 2;
+export function startTroops(lvl: number): number {
+  return 1 + lvl;
+}
+
+export function capacity(lvl: number): number {
+  return 8 + lvl * 3;
 }
 
 export function playerPower(lvl: number): number {
-  return Math.pow(1.12, lvl);
+  return Math.pow(1.15, lvl);
 }
 
 export function incomeMult(lvl: number): number {
-  return 1 + lvl * 0.15;
+  return 1 + lvl * 0.2;
 }
 
 function niceRound(n: number): number {
@@ -46,17 +55,11 @@ export function upgradeCost(def: UpgradeDef, lvl: number): number {
   return niceRound(def.baseCost * Math.pow(def.growth, lvl));
 }
 
-/** พลังมาตรฐานของศัตรู/ผู้เล่นอ้างอิงในด่านนั้นๆ */
-export function refPower(level: number): number {
-  return Math.pow(1.04, level - 1);
+export function winReward(level: number, collected: number, eraBoss: boolean, cycle: number, economyLvl: number): number {
+  const base = 15 + level * 4 + (eraBoss ? 100 : 0);
+  return Math.round((base * (1 + (cycle - 1) * 0.5) + collected) * incomeMult(economyLvl));
 }
 
-export function winReward(level: number, survivors: number, eraBoss: boolean, incomeLvl: number): number {
-  const base = 25 + level * 5 + 8 * Math.sqrt(Math.max(0, survivors)) + (eraBoss ? 120 : 0);
-  return Math.round(base * incomeMult(incomeLvl));
-}
-
-export function loseReward(level: number, progress: number, incomeLvl: number): number {
-  const base = (8 + level * 2) * Math.max(0, Math.min(1, progress));
-  return Math.round(base * incomeMult(incomeLvl));
+export function loseReward(collected: number, economyLvl: number): number {
+  return Math.max(1, Math.round(collected * 0.5 * incomeMult(economyLvl)));
 }

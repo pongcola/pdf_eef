@@ -1,4 +1,4 @@
-import { LEVELS_PER_ERA } from './config.ts';
+import { ERAS_PER_CYCLE, LEVELS_PER_ERA } from './config.ts';
 
 export type DecorKind = 'stone' | 'ancient' | 'medieval' | 'gunpowder' | 'modern' | 'future';
 
@@ -62,9 +62,12 @@ export const ERAS: readonly EraDef[] = [
 
 export const PLAYER_COLOR = 0x2f7bff;
 export const ENEMY_COLOR = 0xe8433f;
+/** ทหารพิเศษ (จากแท่นเก็บทหาร) */
+export const ELITE_COLOR = 0xf2b632;
 
+/** level = ด่านในรอบ (1–30) */
 export function eraIndexForLevel(level: number): number {
-  return Math.min(ERAS.length - 1, Math.floor((level - 1) / LEVELS_PER_ERA));
+  return Math.min(ERAS_PER_CYCLE - 1, Math.floor((level - 1) / LEVELS_PER_ERA));
 }
 
 export function isEraBossLevel(level: number): boolean {

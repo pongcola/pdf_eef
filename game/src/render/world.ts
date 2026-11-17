@@ -199,12 +199,16 @@ export class World {
   readonly group = new Group();
   private disposables: { dispose(): void }[] = [];
 
-  constructor(scene: Scene, era: EraDef, bossD: number, seed: number) {
+  /**
+   * endD = ตำแหน่งบอส (มีลานบอส) หรือประตูปราสาทท้ายทุ่งสมบัติ
+   */
+  constructor(scene: Scene, era: EraDef, opts: { finishD: number; endD: number; arena: boolean }, seed: number) {
     scene.background = new Color(era.sky);
     scene.fog = new Fog(era.fog, 38, 120);
+    const bossD = opts.endD;
 
     const start = -25;
-    const end = bossD - ARENA_RADIUS + 1;
+    const end = opts.arena ? bossD - ARENA_RADIUS + 1 : bossD + 16;
     const len = end - start;
 
     // ถนน
@@ -249,15 +253,51 @@ export class World {
     this.group.add(ground);
     this.disposables.push(groundMat, ground.geometry);
 
+    // เส้นชัย
+    const finTex = stripedTexture(0xffffff, 0xe8433f, 64, 16, (g) => {
+      for (let x = 0; x < 64; x += 16) {
+        g.fillRect(x, 0, 8, 8);
+        g.fillRect(x + 8, 8, 8, 8);
+      }
+    });
+    finTex.repeat.set(5, 1);
+    const finMat = new MeshLambertMaterial({ map: finTex });
+    const fin = new Mesh(new PlaneGeometry(TRACK_WIDTH, 1.6), finMat);
+    fin.rotation.x = -Math.PI / 2;
+    fin.position.set(0, 0.012, -opts.finishD);
+    this.group.add(fin);
+    this.disposables.push(finTex, finMat, fin.geometry);
+
+    if (!opts.arena) {
+      // ประตูปราสาทท้ายทุ่งสมบัติ
+      const gate = merge([
+        part(new CylinderGeometry(1.3, 1.5, 7, 10), era.rail, -TRACK_WIDTH / 2 - 0.6, 3.5, 0),
+        part(new CylinderGeometry(1.3, 1.5, 7, 10), era.rail, TRACK_WIDTH / 2 + 0.6, 3.5, 0),
+        part(new ConeGeometry(1.7, 2.2, 10), era.railAlt, -TRACK_WIDTH / 2 - 0.6, 8.1, 0),
+        part(new ConeGeometry(1.7, 2.2, 10), era.railAlt, TRACK_WIDTH / 2 + 0.6, 8.1, 0),
+        part(new BoxGeometry(TRACK_WIDTH + 1.4, 1.6, 1.6), era.rail, 0, 6.2, 0),
+        part(new BoxGeometry(TRACK_WIDTH - 1, 5.4, 0.4), 0x6b4220, 0, 2.7, -0.3),
+        part(new BoxGeometry(0.25, 5.4, 0.45), 0x3b2614, 0, 2.7, -0.25),
+        part(new BoxGeometry(1.2, 0.9, 0.2), 0xffcf33, 0, 7.4, 0.8),
+      ]);
+      const gateMat = new MeshLambertMaterial({ vertexColors: true });
+      const gm = new Mesh(gate, gateMat);
+      gm.position.z = -opts.endD;
+      this.group.add(gm);
+      this.disposables.push(gate, gateMat);
+    }
+
     // ลานบอส
     const arenaMat = new MeshLambertMaterial({ color: era.track });
     const arena = new Mesh(new CylinderGeometry(ARENA_RADIUS, ARENA_RADIUS + 0.3, 1, 40), arenaMat);
+    arena.visible = opts.arena;
     arena.position.set(0, -0.5, -bossD);
     this.group.add(arena);
     const ringMat = new MeshLambertMaterial({ color: era.rail });
     const ring = new Mesh(new TorusGeometry(ARENA_RADIUS, 0.22, 6, 48), ringMat);
     ring.rotation.x = Math.PI / 2;
     ring.position.set(0, 0.02, -bossD);
+    ring.visible = opts.arena;
     this.group.add(ring);
     this.disposables.push(arenaMat, arena.geometry, ringMat, ring.geometry);
 
@@ -294,7 +334,7 @@ export class World {
       const side = rng() < 0.5 ? -1 : 1;
       const off = TRACK_WIDTH / 2 + p.minOff + rng() * 22;
       const d = -30 + rng() * span;
-      // ไม่วางทับลานบอส
+      // ไม่วางทับลานบอส/ประตูปราสาท
       if (Math.hypot(side * off, d - bossD) < ARENA_RADIUS + 3) continue;
       buckets[k].push({
         x: side * off,

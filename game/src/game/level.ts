@@ -1,190 +1,263 @@
-import { makeRng, pick } from '../rng.ts';
-import { refPower } from '../economy.ts';
+import { BASE_FIRE_RATE, ELITE_DAMAGE, LANE_X, LEVELS_PER_CYCLE } from '../config.ts';
 import { eraIndexForLevel, isEraBossLevel } from '../eras.ts';
-
-export type GateKind = 'add' | 'sub' | 'mul' | 'div';
-export interface GateOp {
-  kind: GateKind;
-  v: number;
-}
+import { makeRng, pick } from '../rng.ts';
 
 export type ObstacleKind = 'saw' | 'wall' | 'hammer' | 'spinner';
+export type StatKind = 'rate' | 'range' | 'power';
 
-export interface GateSection {
-  type: 'gates';
-  d: number;
-  left: GateOp;
-  right: GateOp;
-}
-
+/** กับดักที่ทำลายไม่ได้ (ใบเลื่อย ค้อน คานหมุน) */
 export interface ObstacleSection {
   type: 'obstacle';
   d: number;
   kind: ObstacleKind;
   speed: number;
   phase: number;
-  /** wall: ตำแหน่งกลางของกำแพง, spinner: ทิศหมุน */
   param: number;
-  /** wall: ความกว้างกำแพง */
   width: number;
 }
 
-export interface EnemySection {
-  type: 'enemy';
+/** สิ่งกีดขวางที่มีเลือด ยิงให้แตกได้ ชนแล้วทหารตาย */
+export interface BlockItem {
+  type: 'block';
   d: number;
-  count: number;
+  x: number;
+  hp: number;
+  coins: number;
 }
 
-export type Section = GateSection | ObstacleSection | EnemySection;
+/** ป้ายค่าพลัง: ยิงเพื่อเพิ่มค่า แล้ววิ่งผ่านเพื่อรับ */
+export interface StatItem {
+  type: 'stat';
+  d: number;
+  x: number;
+  kind: StatKind;
+  value: number;
+}
+
+/** กรงเชลย: ยิงแตกแล้วได้ทหารเพิ่ม */
+export interface CageItem {
+  type: 'cage';
+  d: number;
+  x: number;
+  hp: number;
+  prisoners: number;
+}
+
+/** แท่นทหารพิเศษ: ยิงแคปซูลให้แตก แล้ววิ่งผ่านแท่นเพื่อรับ */
+export interface RecruitItem {
+  type: 'recruit';
+  d: number;
+  x: number;
+  capsules: number;
+  capsuleHp: number;
+}
+
+/** ทหารศัตรู: วิ่งเข้ามาชน (ชนแล้วตายทั้งคู่) */
+export interface EnemyItem {
+  type: 'enemies';
+  d: number;
+  x: number;
+  count: number;
+  hp: number;
+}
+
+/** คริสตัลในทุ่งสมบัติท้ายด่าน */
+export interface CrystalItem {
+  type: 'crystal';
+  d: number;
+  x: number;
+  hp: number;
+  coins: number;
+  tier: number;
+}
+
+export type Item = ObstacleSection | BlockItem | StatItem | CageItem | RecruitItem | EnemyItem | CrystalItem;
 
 export interface LevelData {
   level: number;
+  cycle: number;
+  /** ระดับความยากจริง (รวมรอบ) */
+  hard: number;
   era: number;
   eraBoss: boolean;
-  sections: Section[];
-  bossD: number;
+  items: Item[];
+  finishD: number;
+  /** ตำแหน่งบอส (ด่านบอส) หรือประตูปราสาทท้ายทุ่งสมบัติ */
+  endD: number;
   bossHp: number;
-  enemyPower: number;
-  /** ขนาดฝูงที่ระบบคาดว่าผู้เล่นจะมีตอนถึงบอส (ใช้ปรับสมดุล) */
-  expectedAtBoss: number;
-}
-
-export const SECTION_GAP = 30;
-
-export function applyGate(op: GateOp, n: number): number {
-  switch (op.kind) {
-    case 'add':
-      return n + op.v;
-    case 'sub':
-      return Math.max(0, n - op.v);
-    case 'mul':
-      return n * op.v;
-    case 'div':
-      return n <= 0 ? 0 : Math.max(1, Math.ceil(n / op.v));
-  }
-}
-
-export function isGoodGate(op: GateOp): boolean {
-  return op.kind === 'add' || op.kind === 'mul';
-}
-
-export function gateLabel(op: GateOp): string {
-  const sym = { add: '+', sub: '−', mul: '×', div: '÷' }[op.kind];
-  return `${sym}${op.v}`;
-}
-
-function nice(n: number): number {
-  if (n < 20) return Math.max(1, Math.round(n));
-  if (n < 100) return Math.round(n / 5) * 5;
-  if (n < 1000) return Math.round(n / 10) * 10;
-  return Math.round(n / 50) * 50;
-}
-
-function goodOp(rng: () => number, e: number, level: number, prefer?: 'add' | 'mul'): GateOp {
-  const useMul = prefer ? prefer === 'mul' : rng() < 0.4;
-  if (useMul) return { kind: 'mul', v: level >= 3 && rng() < 0.25 ? 3 : 2 };
-  return { kind: 'add', v: nice(Math.max(4, e * (0.5 + rng() * 0.8))) };
-}
-
-function badOp(rng: () => number, e: number, prefer?: 'sub' | 'div'): GateOp {
-  const useDiv = prefer ? prefer === 'div' : rng() < 0.35 && e >= 8;
-  if (useDiv) return { kind: 'div', v: 2 };
-  return { kind: 'sub', v: nice(Math.max(2, e * (0.25 + rng() * 0.35))) };
-}
-
-function makeGatePair(rng: () => number, e: number, level: number): [GateOp, GateOp] {
-  const r = rng();
-  let a: GateOp;
-  let b: GateOp;
-  if (r < 0.4 || level < 2) {
-    a = goodOp(rng, e, level);
-    b = badOp(rng, e);
-  } else if (r < 0.92 || level < 6) {
-    a = goodOp(rng, e, level, 'add');
-    b = goodOp(rng, e, level, 'mul');
-  } else {
-    // เลือกทางที่เสียน้อยกว่า
-    a = badOp(rng, e, 'sub');
-    b = badOp(rng, e, 'div');
-  }
-  return rng() < 0.5 ? [a, b] : [b, a];
-}
-
-export function obstacleKindsFor(level: number): ObstacleKind[] {
-  const kinds: ObstacleKind[] = [];
-  if (level >= 2) kinds.push('saw', 'wall');
-  if (level >= 4) kinds.push('hammer');
-  if (level >= 6) kinds.push('spinner');
-  return kinds;
-}
-
-/**
- * ความยากของบอส = จำนวนวินาทีที่ฝูง "ขนาดที่คาดไว้" ต้องตีเต็มแรงถึงจะชนะ
- * ค่ายิ่งมาก ยิ่งต้องเหลือคนมากถึงจะชนะ
- */
-export function bossSeconds(level: number, eraBoss: boolean): number {
-  return Math.min(7, 2.2 + (level - 1) * 0.18) * (eraBoss ? 1.15 : 1);
+  /** ดาเมจต่อนัดของศัตรู = ใช้คำนวณเลือดบอสแสดงผล */
+  enemyHp: number;
 }
 
 export interface PlayerStats {
-  startCrowd: number;
+  startTroops: number;
+  capacity: number;
   power: number;
   failStreak: number;
 }
 
-export function generateLevel(level: number, player: PlayerStats): LevelData {
-  const rng = makeRng(level * 9973 + 1337);
+export const STAT_LABEL: Record<StatKind, string> = {
+  rate: 'อัตรายิง',
+  range: 'ระยะยิง',
+  power: 'พลังยิง',
+};
+
+const LANES = [-LANE_X, 0, LANE_X];
+
+export function generateLevel(level: number, cycle: number, player: PlayerStats): LevelData {
+  const hard = level + (cycle - 1) * LEVELS_PER_CYCLE;
+  const rng = makeRng(hard * 7919 + 101);
   const era = eraIndexForLevel(level);
   const eraBoss = isEraBossLevel(level);
-  // ความยากปรับตามผู้เล่นครึ่งหนึ่ง: อัปเกรดยังช่วยได้จริง แต่เกมไม่ง่ายเกินไป
-  const power = Math.sqrt(refPower(level) * player.power);
-  const refStart = 6 + (level - 1);
-  const nSections = Math.min(16, 7 + Math.floor(level / 2));
-  const obstacleKinds = obstacleKindsFor(level);
+  const relief = 1 - 0.12 * Math.min(3, player.failStreak);
 
-  let e = Math.sqrt(refStart * player.startCrowd);
-  let d = 30;
-  let last: Section['type'] | '' = '';
-  const sections: Section[] = [];
+  // ค่าอ้างอิง: ผสมระหว่าง "ค่ามาตรฐานของด่าน" กับ "ค่าจริงของผู้เล่น" (อัปเกรดช่วยได้ แต่ไม่ง่ายเกินไป)
+  const dmgRef = Math.sqrt(Math.pow(1.12, hard - 1) * player.power);
+  const capRef = Math.sqrt((8 + hard * 1.2) * player.capacity);
+  let troops = Math.min(capRef, Math.sqrt((1 + hard * 0.3) * player.startTroops));
+  let elites = 0;
+  let rateMul = 1;
+  let powMul = 1;
+  const tBreak = Math.min(1.7, 0.75 + hard * 0.03);
+  const dps = () => (troops - elites + elites * ELITE_DAMAGE) * BASE_FIRE_RATE * rateMul * dmgRef * powMul;
+  const hpOf = (k: number) => Math.max(2, Math.round(dps() * k * relief));
+
+  const nSections = Math.min(16, 7 + Math.floor(hard / 3));
+  const items: Item[] = [];
+  let d = 22;
+  let last = '';
+
+  const weights: [string, number][] = [
+    ['block', 3],
+    ['cage', 2.2],
+    ['stat', 1.6],
+    ['recruit', hard >= 2 ? 1.2 : 0],
+    ['enemies', hard >= 3 ? 1.6 : 0],
+    ['hazard', hard >= 4 ? 1.0 : 0],
+  ];
 
   for (let i = 0; i < nSections; i++) {
-    let type: Section['type'] = 'gates';
-    // ประตูอย่างน้อยทุกๆ 2 ช่วง ฝูงจะได้โตต่อเนื่อง
-    if (i >= 2 && last === 'gates' && rng() < 0.65) {
-      type = obstacleKinds.length && rng() < 0.45 ? 'obstacle' : 'enemy';
+    let type: string;
+    if (i === 0) type = 'stat';
+    else if (i === 1) type = 'cage';
+    else {
+      do {
+        const total = weights.reduce((a, w) => a + w[1], 0);
+        let r = rng() * total;
+        type = weights[0][0];
+        for (const [k, w] of weights) {
+          if (r < w) {
+            type = k;
+            break;
+          }
+          r -= w;
+        }
+      } while (type === last && type !== 'block');
     }
 
-    if (type === 'gates') {
-      const [left, right] = makeGatePair(rng, e, level);
-      sections.push({ type, d, left, right });
-      // ผู้เล่นทั่วไปเลือกถูกเกือบทุกครั้ง แต่เผื่อพลาดไว้นิดหน่อย
-      e = Math.max(applyGate(left, e), applyGate(right, e)) * 0.92;
-    } else if (type === 'obstacle') {
-      const kind = pick(rng, obstacleKinds);
-      const speedScale = 1 + Math.min(0.6, level * 0.015);
-      sections.push({
-        type,
-        d,
-        kind,
-        speed: (1.2 + rng() * 0.9) * speedScale,
-        phase: rng() * Math.PI * 2,
-        param: kind === 'wall' ? (rng() * 2 - 1) * 2.4 : rng() < 0.5 ? -1 : 1,
-        width: kind === 'wall' ? Math.min(4.2, 2.4 + level * 0.04) : 0,
-      });
-      e *= 0.85;
-    } else {
-      const count = Math.max(3, Math.round(e * (0.18 + rng() * 0.22)));
-      sections.push({ type, d, count });
-      e = Math.max(4, e - count);
+    switch (type) {
+      case 'block': {
+        const n = rng() < 0.6 ? 1 : hard >= 8 && rng() < 0.15 ? 3 : 2;
+        const lanes = [...LANES].sort(() => rng() - 0.5).slice(0, n);
+        for (const x of lanes) {
+          const hp = hpOf(tBreak * (0.7 + rng() * 0.6));
+          items.push({ type: 'block', d, x, hp, coins: Math.max(1, Math.round(Math.sqrt(hp) * 0.5)) });
+        }
+        break;
+      }
+      case 'stat': {
+        const side = rng() < 0.5 ? -1 : 1;
+        const kinds: StatKind[] = ['rate', 'range', 'power'];
+        const kind = pick(rng, kinds);
+        const value = -Math.min(40, Math.round(4 + rng() * 8 + hard * 0.4));
+        items.push({ type: 'stat', d, x: side * 2.5, kind, value });
+        const other = rng();
+        if (other < 0.45) {
+          const hp = hpOf(tBreak);
+          items.push({ type: 'block', d, x: -side * LANE_X, hp, coins: Math.max(1, Math.round(Math.sqrt(hp) * 0.5)) });
+        } else if (other < 0.8) {
+          const k2 = pick(rng, kinds.filter((k) => k !== kind));
+          items.push({ type: 'stat', d, x: -side * 2.5, kind: k2, value: -Math.min(40, Math.round(6 + rng() * 10 + hard * 0.4)) });
+        }
+        // ผู้เล่นทั่วไปยิงป้ายได้ราว +12%
+        if (kind === 'rate') rateMul *= 1.12;
+        else if (kind === 'power') powMul *= 1.12;
+        break;
+      }
+      case 'cage': {
+        const prisoners = Math.min(6, 1 + Math.floor(rng() * 2) + Math.floor(hard / 6));
+        items.push({ type: 'cage', d, x: pick(rng, LANES), hp: hpOf(tBreak * 1.1), prisoners });
+        troops = Math.min(capRef, troops + prisoners * 0.85);
+        break;
+      }
+      case 'recruit': {
+        const side = rng() < 0.5 ? -1 : 1;
+        items.push({ type: 'recruit', d, x: side * LANE_X, capsules: 2, capsuleHp: hpOf(0.45) });
+        troops = Math.min(capRef, troops + 1.4);
+        elites = Math.min(troops, elites + 1.4);
+        break;
+      }
+      case 'enemies': {
+        const count = Math.min(12, 2 + Math.floor(rng() * 3) + Math.floor(hard / 5));
+        const hp = Math.max(1, Math.round(dmgRef * powMul * 2 * relief));
+        items.push({ type: 'enemies', d, x: (rng() - 0.5) * 3, count, hp });
+        troops = Math.max(1, troops - count * 0.15);
+        break;
+      }
+      case 'hazard': {
+        const kind = pick(rng, ['saw', 'hammer', 'spinner'] as const);
+        items.push({
+          type: 'obstacle',
+          d,
+          kind,
+          speed: (1.1 + rng() * 0.8) * (1 + Math.min(0.5, hard * 0.01)),
+          phase: rng() * Math.PI * 2,
+          param: rng() < 0.5 ? -1 : 1,
+          width: 0,
+        });
+        troops = Math.max(1, troops * 0.92);
+        break;
+      }
     }
     last = type;
-    d += SECTION_GAP;
+    d += 22 + rng() * 6;
   }
 
-  const bossD = d + 4;
-  // แพ้ติดกันหลายครั้ง บอสจะอ่อนลงเล็กน้อย
-  const relief = 1 - 0.12 * Math.min(3, player.failStreak);
-  const bossHp = Math.max(20, Math.round(bossSeconds(level, eraBoss) * e * power * relief));
+  const finishD = d + 2;
+  let endD: number;
+  let bossHp = 0;
+  if (eraBoss) {
+    endD = finishD + 18;
+    bossHp = Math.max(30, Math.round(dps() * Math.min(16, 8 + hard * 0.25) * relief));
+  } else {
+    // ทุ่งสมบัติ: คริสตัลแถวละ 3 ก้อน ยิ่งลึกยิ่งแข็งและยิ่งได้เหรียญเยอะ
+    let cd = finishD + 8;
+    for (let k = 0; k < 14; k++) {
+      for (const x of LANES) {
+        items.push({
+          type: 'crystal',
+          d: cd,
+          x,
+          hp: Math.max(2, Math.round(dps() * 0.3 * Math.pow(1.45, k))),
+          coins: Math.round((3 + hard * 0.6) * Math.pow(1.32, k)),
+          tier: k,
+        });
+      }
+      cd += 5.5;
+    }
+    endD = cd + 6;
+  }
 
-  return { level, era, eraBoss, sections, bossD, bossHp, enemyPower: power, expectedAtBoss: e };
+  return {
+    level,
+    cycle,
+    hard,
+    era,
+    eraBoss,
+    items,
+    finishD,
+    endD,
+    bossHp,
+    enemyHp: Math.max(1, Math.round(dmgRef * 2)),
+  };
 }

@@ -1,4 +1,4 @@
-import { STAMINA_MAX, STAMINA_RUN_COST, LEVELS_PER_ERA } from '../config.ts';
+import { LEVELS_PER_ERA, STAMINA_MAX, STAMINA_RUN_COST } from '../config.ts';
 import type { UpgradeId } from '../economy.ts';
 import type { EraDef } from '../eras.ts';
 import type { SaveData } from '../save.ts';
@@ -14,6 +14,8 @@ export interface UIHandlers {
   menu(): void;
   toggle(key: 'sound' | 'music' | 'vibration'): void;
   reset(): void;
+  /** วงล้อหยุดที่ตัวคูณ mult; คืนค่ารางวัลรวม */
+  wheel(mult: number): number;
 }
 
 export interface MenuData {
@@ -24,9 +26,9 @@ export interface MenuData {
     id: UpgradeId;
     name: string;
     icon: string;
+    color: string;
     lvl: number;
     desc: string;
-    next: string;
     cost: number;
     affordable: boolean;
   }[];
@@ -36,13 +38,37 @@ export interface ResultData {
   win: boolean;
   level: number;
   reward: number;
+  collected: number;
   survivors: number;
   evolved: EraDef | null;
+  /** > 0 เมื่อเพิ่งเริ่มรอบใหม่ (เลขรอบ) */
+  newCycle: number;
+  castle: boolean;
+  wheel: boolean;
   income: number;
   save: SaveData;
 }
 
+export interface HudStats {
+  coins: number;
+  troops: number;
+  cap: number;
+  rate: number;
+  range: number;
+  power: number;
+}
+
 const ERA_ICONS = ['🪨', '🏛️', '🛡️', '💥', '🚁', '🚀'];
+const WHEEL = [
+  { m: 1.5, c: '#3f8cff' },
+  { m: 2, c: '#2fbf63' },
+  { m: 1.2, c: '#8a63ff' },
+  { m: 3, c: '#ff4f6d' },
+  { m: 1.5, c: '#3f8cff' },
+  { m: 2, c: '#2fbf63' },
+  { m: 1.2, c: '#8a63ff' },
+  { m: 2.5, c: '#ff9f1c' },
+];
 
 export function fmt(n: number): string {
   n = Math.round(n);
@@ -59,7 +85,6 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', html = ''):
 }
 
 export class UI {
-  private root: HTMLElement;
   private h: UIHandlers;
   private labels: HTMLElement;
   private floaters: HTMLElement;
@@ -72,18 +97,26 @@ export class UI {
   private settingsModal: HTMLElement;
   private toastEl: HTMLElement;
   private crowdLabel: HTMLElement;
+  private dmgPool: HTMLElement[] = [];
+  private dmgNext = 0;
   private lastTick = 0;
   private resetArmed = 0;
+  private hudKey = '';
+  private wheelSpun = false;
 
   constructor(root: HTMLElement, h: UIHandlers) {
-    this.root = root;
     this.h = h;
     this.labels = el('div', 'labels');
     this.floaters = el('div', 'floaters');
     root.append(this.labels, this.floaters);
-
     this.crowdLabel = el('div', 'label crowd');
     this.labels.append(this.crowdLabel);
+    for (let i = 0; i < 36; i++) {
+      const d = el('div', 'dmg');
+      d.style.display = 'none';
+      this.floaters.append(d);
+      this.dmgPool.push(d);
+    }
 
     this.menu = el(
       'div',
@@ -116,13 +149,18 @@ export class UI {
       `
       <div class="hud-top">
         <div class="lvl-chip" data-hudlvl>ด่าน 1</div>
-        <div class="progress"><div class="bar" data-prog></div><span class="boss-ic" data-bossic>💀</span></div>
+        <div class="progress"><div class="bar" data-prog></div><span class="boss-ic" data-bossic>💎</span></div>
         <button class="icon-btn" data-act="pause" aria-label="หยุด">⏸</button>
-      </div>`,
+      </div>
+      <div class="hud-row">
+        <div class="chip gold">🪙 <b data-hcoins>0</b></div>
+        <div class="chip">🧍 <b data-htroops>1/8</b></div>
+      </div>
+      <div class="hud-stats" data-hstats></div>`,
     );
     root.append(this.hud);
 
-    this.hint = el('div', 'hint hidden', `<div class="hand">👆</div><div>ลากนิ้วซ้าย–ขวา เพื่อบังคับฝูง</div>`);
+    this.hint = el('div', 'hint hidden', `<div class="hand">👆</div><div>ลากนิ้วซ้าย–ขวา ทหารจะยิงเอง</div>`);
     root.append(this.hint);
 
     this.bossbar = el(
@@ -146,15 +184,12 @@ export class UI {
 
     this.resultModal = el('div', 'modal hidden');
     root.append(this.resultModal);
-
     this.settingsModal = el('div', 'modal hidden');
     root.append(this.settingsModal);
-
     this.toastEl = el('div', 'toast hidden');
     root.append(this.toastEl);
 
     root.addEventListener('click', (e) => this.onClick(e));
-    // ปลดล็อกเสียงหลังการแตะครั้งแรก
     const unlock = () => {
       unlockAudio();
       window.removeEventListener('pointerdown', unlock);
@@ -175,7 +210,7 @@ export class UI {
       return;
     }
     const act = t.dataset.act;
-    if (act !== 'play' && act !== 'resume') sfx.click();
+    if (act !== 'play' && act !== 'resume' && act !== 'spin') sfx.click();
     switch (act) {
       case 'play':
         this.h.play();
@@ -191,6 +226,9 @@ export class UI {
         break;
       case 'menu':
         this.h.menu();
+        break;
+      case 'spin':
+        this.spinWheel();
         break;
       case 'settings':
         this.settingsModal.classList.remove('hidden');
@@ -218,7 +256,6 @@ export class UI {
     }
   }
 
-  /** ปิดหน้าต่างที่เปิดอยู่ (ปุ่มย้อนกลับของ Android) */
   closeOverlays(): boolean {
     if (!this.settingsModal.classList.contains('hidden')) {
       this.settingsModal.classList.add('hidden');
@@ -232,7 +269,8 @@ export class UI {
   showMenu(d: MenuData): void {
     this.menu.classList.remove('hidden');
     this.q(this.menu, '[data-coins]').textContent = fmt(d.save.coins);
-    this.q(this.menu, '[data-era]').innerHTML = `${ERA_ICONS[d.era.id]} ${d.era.nameTh} <small>${d.era.nameEn}</small>`;
+    const cycle = d.save.cycle > 1 ? `<span class="cycle">รอบ ${d.save.cycle}</span>` : '';
+    this.q(this.menu, '[data-era]').innerHTML = `${cycle}${ERA_ICONS[d.era.id]} ${d.era.nameTh} <small>${d.era.nameEn}</small>`;
     const inEra = ((d.save.level - 1) % LEVELS_PER_ERA) + 1;
     const dots = this.q(this.menu, '[data-dots]');
     dots.innerHTML = '';
@@ -247,8 +285,8 @@ export class UI {
       const b = el(
         'button',
         'upg' + (u.affordable ? ' can' : ''),
-        `<div class="upg-ic">${u.icon}</div>
-         <div class="upg-name">${u.name}</div>
+        `<div class="upg-head" style="background:${u.color}">${u.name}</div>
+         <div class="upg-ic">${u.icon}</div>
          <div class="upg-lvl">Lv.${u.lvl + 1}</div>
          <div class="upg-desc">${u.desc}</div>
          <div class="upg-cost">🪙 ${fmt(u.cost)}</div>`,
@@ -265,7 +303,6 @@ export class UI {
     this.menu.classList.add('hidden');
   }
 
-  /** อัปเดตตัวนับ stamina (เรียกทุกเฟรม แต่ทำงานจริงทุก 250ms) */
   tickMenu(save: SaveData, now: number): void {
     if (now - this.lastTick < 250) return;
     this.lastTick = now;
@@ -284,10 +321,11 @@ export class UI {
 
   // ---------- ระหว่างเล่น ----------
 
-  showHud(level: number, eraBoss: boolean): void {
+  showHud(level: number, cycle: number, eraBoss: boolean): void {
     this.hud.classList.remove('hidden');
-    this.q(this.hud, '[data-hudlvl]').textContent = `ด่าน ${level}`;
-    this.q(this.hud, '[data-bossic]').textContent = eraBoss ? '👑' : '💀';
+    this.q(this.hud, '[data-hudlvl]').textContent = cycle > 1 ? `รอบ ${cycle} • ด่าน ${level}` : `ด่าน ${level}`;
+    this.q(this.hud, '[data-bossic]').textContent = eraBoss ? '👑' : '💎';
+    this.hudKey = '';
     this.setProgress(0);
   }
 
@@ -300,6 +338,20 @@ export class UI {
     this.q(this.hud, '[data-prog]').style.width = `${Math.round(p * 1000) / 10}%`;
   }
 
+  setHudStats(s: HudStats): void {
+    const key = `${s.coins}|${s.troops}|${s.cap}|${s.rate.toFixed(2)}|${s.range.toFixed(2)}|${s.power.toFixed(2)}`;
+    if (key === this.hudKey) return;
+    this.hudKey = key;
+    this.q(this.hud, '[data-hcoins]').textContent = fmt(s.coins);
+    const tr = this.q(this.hud, '[data-htroops]');
+    tr.textContent = `${s.troops}/${s.cap}`;
+    tr.parentElement!.classList.toggle('full', s.troops >= s.cap);
+    const chip = (ic: string, name: string, v: number) =>
+      `<div class="stat ${v > 1.001 ? 'up' : v < 0.999 ? 'down' : ''}">${ic} ${name} ×${v.toFixed(2)}</div>`;
+    this.q(this.hud, '[data-hstats]').innerHTML =
+      chip('🔥', 'อัตรายิง', s.rate) + chip('🎯', 'ระยะ', s.range) + chip('💥', 'พลัง', s.power);
+  }
+
   showHint(on: boolean): void {
     this.hint.classList.toggle('hidden', !on);
   }
@@ -308,8 +360,8 @@ export class UI {
     this.pauseModal.classList.toggle('hidden', !on);
   }
 
-  makeLabel(kind: 'enemy'): HTMLElement {
-    const l = el('div', `label ${kind}`);
+  makeLabel(kind: 'enemy' | 'hp'): HTMLElement {
+    const l = el('div', kind === 'hp' ? 'label hpl' : `label ${kind}`);
     l.style.display = 'none';
     this.labels.append(l);
     return l;
@@ -330,10 +382,18 @@ export class UI {
     this.setLabel(this.crowdLabel, n, x, y, vis);
   }
 
-  bumpCrowd(): void {
-    this.crowdLabel.classList.remove('bump');
-    void this.crowdLabel.offsetWidth;
-    this.crowdLabel.classList.add('bump');
+  /** ตัวเลขดาเมจเด้งขึ้น (ใช้ element ซ้ำ ไม่สร้างใหม่) */
+  damageNumber(n: number, x: number, y: number): void {
+    if (n <= 0) return;
+    const d = this.dmgPool[this.dmgNext];
+    this.dmgNext = (this.dmgNext + 1) % this.dmgPool.length;
+    d.textContent = fmt(n);
+    d.style.left = `${x}px`;
+    d.style.top = `${y}px`;
+    d.style.display = '';
+    d.classList.remove('go');
+    void d.offsetWidth;
+    d.classList.add('go');
   }
 
   floatText(text: string, x: number, y: number, good: boolean): void {
@@ -342,7 +402,16 @@ export class UI {
     f.style.left = `${x}px`;
     f.style.top = `${y}px`;
     this.floaters.append(f);
-    setTimeout(() => f.remove(), 900);
+    setTimeout(() => f.remove(), 1000);
+  }
+
+  coinPop(text: string, x: number, y: number): void {
+    const f = el('div', 'floater coin');
+    f.textContent = `🪙${text}`;
+    f.style.left = `${x}px`;
+    f.style.top = `${y}px`;
+    this.floaters.append(f);
+    setTimeout(() => f.remove(), 1000);
   }
 
   showBossBar(eraBoss: boolean): void {
@@ -360,7 +429,7 @@ export class UI {
   }
 
   placeBossBar(x: number, y: number): void {
-    const top = Math.max(70, Math.min(window.innerHeight * 0.4, y));
+    const top = Math.max(120, Math.min(window.innerHeight * 0.4, y));
     this.bossbar.style.transform = `translate(${x.toFixed(1)}px, ${top.toFixed(1)}px) translate(-50%, -100%)`;
   }
 
@@ -371,26 +440,75 @@ export class UI {
     const next = msToNextStamina(st, Date.now());
     const can = st.value >= STAMINA_RUN_COST;
     const stLine = `⚡ ${st.value}/${STAMINA_MAX}` + (next > 0 ? ` • +1 ใน ${formatMs(next)}` : '');
+    const nextLabel = r.newCycle ? `เริ่มรอบ ${r.newCycle}` : `ด่านต่อไป (${r.save.level})`;
+    const segAngle = 360 / WHEEL.length;
+    const wheelHtml = r.wheel
+      ? `<div class="wheel-box" data-wheelbox>
+          <div class="wheel-title">🎁 วงล้อโชค! หมุนฟรี</div>
+          <div class="wheel-wrap">
+            <div class="wheel-pointer">▼</div>
+            <div class="wheel" data-wheel style="background:conic-gradient(${WHEEL.map((s, i) => `${s.c} ${i * segAngle}deg ${(i + 1) * segAngle}deg`).join(',')})">
+              ${WHEEL.map((s, i) => `<span style="transform:rotate(${i * segAngle + segAngle / 2}deg)"><b>×${s.m}</b></span>`).join('')}
+            </div>
+          </div>
+          <button class="spin-btn" data-act="spin">หมุน!</button>
+        </div>`
+      : '';
+    this.wheelSpun = false;
     this.resultModal.innerHTML = `
       <div class="card result ${r.win ? 'win' : 'lose'}">
         <div class="result-title">${r.win ? 'ชนะ!' : 'พ่ายแพ้'}</div>
-        <div class="result-sub">${r.win ? `ผ่านด่าน ${r.level} แล้ว` : `ด่าน ${r.level} • ลองใหม่อีกครั้ง`}</div>
+        <div class="result-sub">${r.win ? `ผ่านด่าน ${r.level} แล้ว${r.castle ? ' • ทะลวงปราสาท!' : ''}` : `ด่าน ${r.level} • ลองใหม่อีกครั้ง`}</div>
         ${
-          r.evolved
-            ? `<div class="evolve"><div class="evolve-ic">${ERA_ICONS[r.evolved.id]}</div><div>วิวัฒนาการสู่<br><b>${r.evolved.nameTh}</b></div></div>`
-            : ''
+          r.newCycle
+            ? `<div class="evolve"><div class="evolve-ic">🔁</div><div>เคลียร์ครบทุกยุค! เริ่ม<br><b>รอบที่ ${r.newCycle}</b><br><small>ด่านยากขึ้น • ทหารเริ่มต้นเหลือ 1 คน</small></div></div>`
+            : r.evolved
+              ? `<div class="evolve"><div class="evolve-ic">${ERA_ICONS[r.evolved.id]}</div><div>วิวัฒนาการสู่<br><b>${r.evolved.nameTh}</b></div></div>`
+              : ''
         }
         <div class="stats">
-          ${r.win ? `<div><span>ผู้รอดชีวิต</span><b>${fmt(r.survivors)}</b></div>` : ''}
-          <div><span>เหรียญที่ได้</span><b class="gold">+${fmt(r.reward)} 🪙</b></div>
+          ${r.win ? `<div><span>ทหารรอดชีวิต</span><b>${fmt(r.survivors)}</b></div>` : ''}
+          <div><span>เหรียญที่ได้</span><b class="gold" data-reward>+${fmt(r.reward)} 🪙</b></div>
         </div>
+        ${wheelHtml}
         <button class="play-btn" data-act="play" ${can ? '' : 'disabled'}>
-          <span>${r.win ? `ด่านต่อไป (${r.level + 1})` : 'ลองอีกครั้ง'}</span><em>⚡${STAMINA_RUN_COST}</em>
+          <span>${r.win ? nextLabel : 'ลองอีกครั้ง'}</span><em>⚡${STAMINA_RUN_COST}</em>
         </button>
         <button class="ghost-btn" data-act="menu">เมนู / อัปเกรด</button>
         <div class="note">${stLine}</div>
       </div>`;
     this.resultModal.classList.remove('hidden');
+  }
+
+  private spinWheel(): void {
+    if (this.wheelSpun) return;
+    this.wheelSpun = true;
+    const wheel = this.q(this.resultModal, '[data-wheel]');
+    const btn = this.q<HTMLButtonElement>(this.resultModal, '[data-act="spin"]');
+    btn.disabled = true;
+    // ตัวคูณสูงออกยากกว่า
+    const weights = WHEEL.map((s) => 1 / s.m);
+    let r = Math.random() * weights.reduce((a, b) => a + b, 0);
+    let idx = 0;
+    for (; idx < WHEEL.length - 1; idx++) {
+      if (r < weights[idx]) break;
+      r -= weights[idx];
+    }
+    const seg = 360 / WHEEL.length;
+    const jitter = (Math.random() - 0.5) * seg * 0.6;
+    const angle = 360 * 5 + (360 - (idx * seg + seg / 2)) + jitter;
+    sfx.click();
+    wheel.style.transition = 'transform 2.6s cubic-bezier(0.15, 0.85, 0.25, 1)';
+    wheel.style.transform = `rotate(${angle}deg)`;
+    window.setTimeout(() => {
+      const mult = WHEEL[idx].m;
+      const total = this.h.wheel(mult);
+      sfx.win();
+      btn.textContent = `ได้ ×${mult}!`;
+      const rw = this.q(this.resultModal, '[data-reward]');
+      rw.textContent = `+${fmt(total)} 🪙`;
+      rw.classList.add('bump');
+    }, 2700);
   }
 
   hideResult(): void {
@@ -410,8 +528,8 @@ export class UI {
         ${row('vibration', '📳 การสั่น', s.vibration)}
         <div class="howto">
           <b>วิธีเล่น</b><br>
-          ลากนิ้วซ้าย–ขวาพาฝูงผ่านประตูสีฟ้า (+, ×) หลบประตูสีแดง (−, ÷)
-          หลบกับดัก ชนะกองทัพศัตรู แล้วล้มบอสท้ายด่าน ชนะบอส 👑 เพื่อเลื่อนไปยุคถัดไป
+          ลากนิ้วซ้าย–ขวา ทหารจะยิงเอง • ยิงสิ่งกีดขวางให้แตกก่อนชน • ยิงป้าย (อัตรายิง/ระยะ/พลัง) ให้เป็นสีเขียวแล้ววิ่งผ่าน •
+          ยิงกรงเพื่อช่วยเพื่อน • ยิงแคปซูลบนแท่นแล้ววิ่งผ่านเพื่อรับทหารพิเศษ • ท้ายด่านยิงคริสตัลเก็บเหรียญ • ทุก 5 ด่านสู้ราชันแห่งยุค 👑
         </div>
         <div class="note">ไม่มีโฆษณา • เล่นออฟไลน์ได้ • Stamina +1 ทุก 5 นาที (สูงสุด ${STAMINA_MAX})</div>
         <button class="ghost-btn danger" data-act="reset">ลบความคืบหน้าทั้งหมด</button>
@@ -427,9 +545,5 @@ export class UI {
     this.toastEl.classList.add('show');
     window.clearTimeout((this.toastEl as unknown as { _t?: number })._t);
     (this.toastEl as unknown as { _t?: number })._t = window.setTimeout(() => this.toastEl.classList.add('hidden'), 2200);
-  }
-
-  get rootEl(): HTMLElement {
-    return this.root;
   }
 }

@@ -322,8 +322,8 @@ body {
 
 .upgrades {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
   margin-bottom: 14px;
 }
 
@@ -332,7 +332,7 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 1px;
-  padding: 8px 4px 0;
+  padding: 0;
   border: 0;
   border-radius: 16px;
   background: var(--panel);
@@ -342,7 +342,17 @@ body {
   min-width: 0;
 }
 
+.upg-head {
+  width: 100%;
+  padding: 4px 2px;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
 .upg-ic {
+  margin-top: 4px;
   font-size: 26px;
   line-height: 1.1;
 }
@@ -364,13 +374,13 @@ body {
 }
 
 .upg-desc {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--muted);
   white-space: nowrap;
 }
 
 .upg-cost {
-  width: calc(100% + 8px);
+  width: 100%;
   margin-top: 6px;
   padding: 5px 0 6px;
   font-size: 15px;
@@ -691,4 +701,178 @@ body {
 
 .toast.show {
   animation: pop 0.2s ease-out;
+}
+
+/* ---------- แนววิ่งยิง ---------- */
+.label.hpl {
+  padding: 0 9px;
+  font-size: 19px;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  background: rgba(25, 25, 40, 0.72);
+  box-shadow: none;
+}
+
+.dmg {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-weight: 800;
+  font-size: 26px;
+  color: #fff;
+  -webkit-text-stroke: 1.5px rgba(0, 0, 0, 0.55);
+  paint-order: stroke fill;
+  pointer-events: none;
+}
+
+.dmg.go {
+  animation: dmgUp 0.6s ease-out forwards;
+}
+
+@keyframes dmgUp {
+  0% { opacity: 0; translate: 0 6px; scale: 0.7; }
+  20% { opacity: 1; translate: 0 -6px; scale: 1.15; }
+  100% { opacity: 0; translate: 0 -46px; scale: 0.9; }
+}
+
+.floater.coin {
+  color: var(--gold);
+  font-size: 28px;
+}
+
+.hud-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.chip {
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--panel);
+  font-size: 17px;
+  white-space: nowrap;
+}
+
+.chip.gold b {
+  color: var(--gold);
+}
+
+.chip.full {
+  background: rgba(200, 60, 60, 0.85);
+}
+
+.hud-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.hud-stats .stat {
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(20, 27, 58, 0.6);
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.hud-stats .stat.up {
+  background: rgba(30, 150, 80, 0.85);
+  color: #fff;
+}
+
+.hud-stats .stat.down {
+  background: rgba(200, 50, 50, 0.85);
+  color: #fff;
+}
+
+.cycle {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 8px;
+  border-radius: 8px;
+  background: var(--red);
+  font-size: 15px;
+}
+
+.evolve small {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.stats b.bump {
+  animation: bump 0.4s ease-out;
+}
+
+.wheel-box {
+  margin: -6px 0 16px;
+  padding: 10px 10px 12px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 2px dashed rgba(255, 207, 51, 0.6);
+}
+
+.wheel-title {
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--gold);
+}
+
+.wheel-wrap {
+  position: relative;
+  width: 170px;
+  height: 170px;
+  margin: 8px auto 10px;
+}
+
+.wheel-pointer {
+  position: absolute;
+  left: 50%;
+  top: -14px;
+  transform: translateX(-50%);
+  z-index: 2;
+  color: #fff;
+  font-size: 26px;
+  text-shadow: 0 2px 3px rgba(0, 0, 0, 0.5);
+}
+
+.wheel {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 5px solid #fff;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+}
+
+.wheel span {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  height: 50%;
+  transform-origin: 50% 100%;
+  translate: -50% 0;
+}
+
+.wheel span b {
+  display: block;
+  margin-top: 10px;
+  font-size: 17px;
+  font-weight: 800;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.spin-btn {
+  min-width: 150px;
+  min-height: 44px;
+  border: 0;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #42dd85, #22b462);
+  box-shadow: 0 4px 0 #168447;
+  color: #fff;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.spin-btn:disabled {
+  background: linear-gradient(180deg, #ffcf33, #e0a800);
+  box-shadow: 0 4px 0 #9c7400;
 }
