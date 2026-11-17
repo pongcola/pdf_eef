@@ -21,7 +21,8 @@ export interface Troop {
   oz: number;
   /** ขนาด (เอฟเฟกต์ตอนเข้าฝูง) */
   s: number;
-  elite: boolean;
+  /** ระดับทหาร 1–5 */
+  tier: number;
   /** เวลาถึงนัดถัดไป */
   cool: number;
 }
@@ -39,18 +40,12 @@ export class Squad {
     this.targetX = 0;
     for (let i = 0; i < n; i++) {
       const [ox, oz] = formationOffset(i);
-      this.troops.push({ ox, oz, s: 1, elite: false, cool: Math.random() * 0.4 });
+      this.troops.push({ ox, oz, s: 1, tier: 1, cool: Math.random() * 0.4 });
     }
   }
 
   get count(): number {
     return this.troops.length;
-  }
-
-  get elites(): number {
-    let n = 0;
-    for (const t of this.troops) if (t.elite) n++;
-    return n;
   }
 
   /** ครึ่งความกว้างของฝูง */
@@ -67,26 +62,25 @@ export class Squad {
     return Math.max(0.5, TRACK_WIDTH / 2 - 0.4 - this.radiusX() * 0.9);
   }
 
-  /** เพิ่มทหารที่วิ่งมาจากตำแหน่ง (wx, wz) ในโลก */
-  add(elite: boolean, wx: number, wz: number): void {
-    const t: Troop = { ox: wx - this.x, oz: wz - this.z, s: 1, elite, cool: Math.random() * 0.3 };
-    // ทหารพิเศษอยู่ด้านหน้า
-    if (elite) this.troops.unshift(t);
-    else this.troops.push(t);
+  /** เพิ่มทหารที่วิ่งมาจากตำแหน่ง (wx, wz) ในโลก — ระดับสูงอยู่ด้านหน้า */
+  add(tier: number, wx: number, wz: number): void {
+    const t: Troop = { ox: wx - this.x, oz: wz - this.z, s: 1, tier, cool: Math.random() * 0.3 };
+    let i = 0;
+    while (i < this.troops.length && this.troops[i].tier >= tier) i++;
+    this.troops.splice(i, 0, t);
   }
 
-  /** เปลี่ยนทหารธรรมดา 1 ตัวเป็นทหารพิเศษ (ตอนฝูงเต็ม) */
-  promote(): boolean {
-    for (let i = this.troops.length - 1; i >= 0; i--) {
-      if (!this.troops[i].elite) {
-        const [t] = this.troops.splice(i, 1);
-        t.elite = true;
-        t.s = 0.3;
-        this.troops.unshift(t);
-        return true;
-      }
+  /** ฝูงเต็ม: เปลี่ยนทหารระดับต่ำสุด 1 ตัวเป็นระดับ tier (ถ้าต่ำกว่า) */
+  promote(tier: number): boolean {
+    let low = -1;
+    for (let i = 0; i < this.troops.length; i++) {
+      if (this.troops[i].tier < tier && (low < 0 || this.troops[i].tier < this.troops[low].tier)) low = i;
     }
-    return false;
+    if (low < 0) return false;
+    const [t] = this.troops.splice(low, 1);
+    t.s = 0.3;
+    this.add(tier, this.x + t.ox, this.z + t.oz);
+    return true;
   }
 
   remove(i: number): Troop {

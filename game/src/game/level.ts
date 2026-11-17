@@ -1,5 +1,5 @@
-import { BASE_FIRE_RATE, ELITE_DAMAGE, LANE_X, LEVELS_PER_CYCLE } from '../config.ts';
-import { eraIndexForLevel, isEraBossLevel } from '../eras.ts';
+import { BASE_FIRE_RATE, LANE_X, MAX_TIER, TIER_DAMAGE } from '../config.ts';
+import { eraIndexForLevel, eraOrdinal, isEraBossLevel, levelInEra, timelineForLevel } from '../eras.ts';
 import { makeRng, pick } from '../rng.ts';
 
 export type ObstacleKind = 'saw' | 'wall' | 'hammer' | 'spinner';
@@ -43,13 +43,22 @@ export interface CageItem {
   prisoners: number;
 }
 
-/** แท่นทหารพิเศษ: ยิงแคปซูลให้แตก แล้ววิ่งผ่านแท่นเพื่อรับ */
+/** แท่นทหาร (Collect Area): ยิงแคปซูลให้แตก แล้ววิ่งผ่านแท่นเพื่อรับทหารระดับ tier */
 export interface RecruitItem {
   type: 'recruit';
   d: number;
   x: number;
   capsules: number;
   capsuleHp: number;
+  tier: number;
+}
+
+/** กองเงินบนถนน: วิ่งผ่านเพื่อเก็บ */
+export interface CashItem {
+  type: 'cash';
+  d: number;
+  x: number;
+  value: number;
 }
 
 /** ทหารศัตรู: วิ่งเข้ามาชน (ชนแล้วตายทั้งคู่) */
@@ -69,14 +78,21 @@ export interface CrystalItem {
   hp: number;
   coins: number;
   tier: number;
+  /** แตกแล้วได้ดาว 1 ดวง */
+  star: boolean;
 }
 
-export type Item = ObstacleSection | BlockItem | StatItem | CageItem | RecruitItem | EnemyItem | CrystalItem;
+export type Item = ObstacleSection | BlockItem | StatItem | CageItem | RecruitItem | EnemyItem | CrystalItem | CashItem;
 
 export interface LevelData {
+  /** เลขด่านรวม */
   level: number;
-  cycle: number;
-  /** ระดับความยากจริง (รวมรอบ) */
+  timeline: number;
+  /** ด่านที่เท่าไรในยุค (1–5) */
+  inEra: number;
+  /** ลำดับยุครวมทุกไทม์ไลน์ */
+  eraOrd: number;
+  /** ระดับความยากที่ใช้คำนวณ */
   hard: number;
   era: number;
   eraBoss: boolean;
@@ -104,31 +120,30 @@ export const STAT_LABEL: Record<StatKind, string> = {
 
 const LANES = [-LANE_X, 0, LANE_X];
 
-export function generateLevel(level: number, cycle: number, player: PlayerStats): LevelData {
-  const hard = level + (cycle - 1) * LEVELS_PER_CYCLE;
-  const rng = makeRng(hard * 7919 + 101);
+export function generateLevel(level: number, player: PlayerStats): LevelData {
+  const rng = makeRng(level * 7919 + 101);
   const era = eraIndexForLevel(level);
+  const eraOrd = eraOrdinal(level);
+  const inEra = levelInEra(level);
+  const timeline = timelineForLevel(level);
   const eraBoss = isEraBossLevel(level);
   const relief = 1 - 0.12 * Math.min(3, player.failStreak);
+  // ทุกยุคเริ่มใหม่ (อัปเกรดรีเซ็ต) จึงให้ความยากไต่ตามด่านในยุค + ยุคละนิด
+  const hard = inEra + eraOrd * 1.2;
 
   // ค่าอ้างอิง: ผสมระหว่าง "ค่ามาตรฐานของด่าน" กับ "ค่าจริงของผู้เล่น" (อัปเกรดช่วยได้ แต่ไม่ง่ายเกินไป)
-  // รอบใหม่ค่อยๆ ยากขึ้นภายใน 10 ด่านแรก (เริ่มรอบด้วยทหาร 1 ตัว แต่พลังที่อัปเกรดไว้ยังอยู่)
-  const ramp = level + (cycle - 1) * LEVELS_PER_CYCLE * Math.min(1, level / 10);
-  const dmgRef = Math.sqrt(Math.pow(1.08, ramp - 1) * player.power);
-  const capRef = Math.sqrt((8 + ramp * 1.2) * player.capacity);
-  // ใช้ด่านในรอบ (ไม่ใช่ระดับรวม) เพื่อให้รอบใหม่ที่เริ่มด้วยทหาร 1 ตัวยังเล่นได้
-  let troops = Math.min(capRef, Math.sqrt((1 + level * 0.25) * player.startTroops));
-  let elites = 0;
+  const dmgRef = Math.sqrt(Math.pow(1.08, hard - 1) * player.power);
+  const capRef = Math.sqrt((8 + hard * 1.2) * player.capacity);
+  let troops = Math.min(capRef, Math.sqrt((1 + inEra * 0.3) * player.startTroops));
+  let bonusUnits = 0;
   let rateMul = 1;
   let powMul = 1;
-  // เวลาที่ใช้ยิงทำลาย: ไล่ตามด่านในรอบ (ต้นรอบใหม่ยังเริ่มง่าย) + รอบละนิด
-  const tBreak = Math.min(1.4, 0.7 + level * 0.025 + (cycle - 1) * 0.12);
-  const dps = () => (troops - elites + elites * ELITE_DAMAGE) * BASE_FIRE_RATE * rateMul * dmgRef * powMul;
+  const tBreak = Math.min(1.4, 0.7 + hard * 0.04);
+  const dps = () => (troops + bonusUnits) * BASE_FIRE_RATE * rateMul * dmgRef * powMul;
   const hpOf = (k: number) => Math.max(2, Math.round(dps() * k * relief));
+  const blockCoins = (hp: number) => Math.max(1, Math.round(Math.sqrt(hp) * 0.5));
 
-  // จำนวน/ชนิดของสิ่งต่างๆ ไล่ตามด่านในรอบ ส่วนความแข็ง (เลือด/พลัง) ใช้ระดับรวม
-  const cy = cycle - 1;
-  const nSections = Math.min(18, 7 + Math.floor(level / 3) + cy * 2);
+  const nSections = Math.min(18, 7 + Math.floor(hard / 2));
   const items: Item[] = [];
   let d = 22;
   let last = '';
@@ -137,9 +152,9 @@ export function generateLevel(level: number, cycle: number, player: PlayerStats)
     ['block', 3],
     ['cage', 2.2],
     ['stat', 1.6],
-    ['recruit', level >= 2 ? 1.2 : 0],
-    ['enemies', level >= 3 ? 1.6 : 0],
-    ['hazard', level >= 5 ? 0.9 : 0],
+    ['recruit', hard >= 2 ? 1.3 : 0],
+    ['enemies', hard >= 3 ? 1.6 : 0],
+    ['hazard', hard >= 4.5 ? 0.9 : 0],
   ];
 
   for (let i = 0; i < nSections; i++) {
@@ -163,12 +178,12 @@ export function generateLevel(level: number, cycle: number, player: PlayerStats)
 
     switch (type) {
       case 'block': {
-        const n = rng() < 0.6 || (level <= 3 && i < 4) ? 1 : level >= 8 && rng() < 0.15 ? 3 : 2;
+        const n = rng() < 0.6 || (hard <= 3 && i < 4) ? 1 : hard >= 8 && rng() < 0.15 ? 3 : 2;
         const lanes = [...LANES].sort(() => rng() - 0.5).slice(0, n);
         for (const x of lanes) {
           // ถ้าปิดครบ 3 เลน ก้อนจะอ่อนลง เพื่อให้ยิงทะลุได้
           const hp = hpOf(tBreak * (0.7 + rng() * 0.6) * (n === 3 ? 0.55 : 1));
-          items.push({ type: 'block', d, x, hp, coins: Math.max(1, Math.round(Math.sqrt(hp) * 0.5)) });
+          items.push({ type: 'block', d, x, hp, coins: blockCoins(hp) });
         }
         break;
       }
@@ -176,15 +191,15 @@ export function generateLevel(level: number, cycle: number, player: PlayerStats)
         const side = rng() < 0.5 ? -1 : 1;
         const kinds: StatKind[] = ['rate', 'range', 'power'];
         const kind = pick(rng, kinds);
-        const value = -Math.min(40, Math.round(2 + rng() * 5 + (level + cy * 8) * 0.5));
+        const value = -Math.min(40, Math.round(2 + rng() * 5 + hard * 0.6));
         items.push({ type: 'stat', d, x: side * 2.5, kind, value });
         const other = rng();
-        if (other < 0.45 && !(level <= 3 && i === 0)) {
+        if (other < 0.45 && !(hard <= 3 && i === 0)) {
           const hp = hpOf(tBreak);
-          items.push({ type: 'block', d, x: -side * LANE_X, hp, coins: Math.max(1, Math.round(Math.sqrt(hp) * 0.5)) });
+          items.push({ type: 'block', d, x: -side * LANE_X, hp, coins: blockCoins(hp) });
         } else if (other < 0.8) {
           const k2 = pick(rng, kinds.filter((k) => k !== kind));
-          items.push({ type: 'stat', d, x: -side * 2.5, kind: k2, value: -Math.min(40, Math.round(3 + rng() * 6 + (level + cy * 8) * 0.5)) });
+          items.push({ type: 'stat', d, x: -side * 2.5, kind: k2, value: -Math.min(40, Math.round(3 + rng() * 6 + hard * 0.6)) });
         }
         // ผู้เล่นทั่วไปยิงป้ายได้ราว +12%
         if (kind === 'rate') rateMul *= 1.12;
@@ -192,7 +207,7 @@ export function generateLevel(level: number, cycle: number, player: PlayerStats)
         break;
       }
       case 'cage': {
-        const prisoners = Math.min(7, 1 + Math.floor(rng() * 2) + Math.floor(level / 6) + cy);
+        const prisoners = Math.min(7, 1 + Math.floor(rng() * 2) + Math.floor(hard / 5));
         // กรงต้องยิงแตกได้ ไม่งั้นฝูงไม่โต
         items.push({ type: 'cage', d, x: pick(rng, LANES), hp: hpOf(tBreak * 0.75), prisoners });
         troops = Math.min(capRef, troops + prisoners * 0.45);
@@ -200,13 +215,15 @@ export function generateLevel(level: number, cycle: number, player: PlayerStats)
       }
       case 'recruit': {
         const side = rng() < 0.5 ? -1 : 1;
-        items.push({ type: 'recruit', d, x: side * LANE_X, capsules: 2, capsuleHp: hpOf(0.4) });
+        const tier = Math.min(MAX_TIER, 2 + Math.floor(inEra / 2) + (rng() < 0.25 ? 1 : 0));
+        items.push({ type: 'recruit', d, x: side * LANE_X, capsules: 2, capsuleHp: hpOf(0.4), tier });
         troops = Math.min(capRef, troops + 0.7);
-        elites = Math.min(troops, elites + 0.7);
+        // ทหารระดับสูงเพิ่มดาเมจเหมือนมีทหารเพิ่มหลายตัว (คิดแบบระมัดระวัง)
+        bonusUnits += 0.7 * (TIER_DAMAGE[tier - 1] - 1) * 0.6;
         break;
       }
       case 'enemies': {
-        const count = Math.min(12, 2 + Math.floor(rng() * 3) + Math.floor(level / 5) + cy);
+        const count = Math.min(12, 2 + Math.floor(rng() * 3) + Math.floor(hard / 3));
         const hp = Math.max(1, Math.round(dmgRef * powMul * 2 * relief));
         items.push({ type: 'enemies', d, x: (rng() - 0.5) * 3, count, hp });
         troops = Math.max(1, troops - count * 0.15);
@@ -218,7 +235,7 @@ export function generateLevel(level: number, cycle: number, player: PlayerStats)
           type: 'obstacle',
           d,
           kind,
-          speed: (1.1 + rng() * 0.8) * (1 + Math.min(0.5, (level + cy * 10) * 0.01)),
+          speed: (1.1 + rng() * 0.8) * (1 + Math.min(0.5, hard * 0.02)),
           phase: rng() * Math.PI * 2,
           param: rng() < 0.5 ? -1 : 1,
           width: 0,
@@ -226,6 +243,10 @@ export function generateLevel(level: number, cycle: number, player: PlayerStats)
         troops = Math.max(1, troops * 0.92);
         break;
       }
+    }
+    // กองเงินระหว่างช่วง
+    if (i > 0 && rng() < 0.4) {
+      items.push({ type: 'cash', d: d + 11, x: pick(rng, LANES), value: Math.round(3 + hard * 1.5) });
     }
     last = type;
     d += 22 + rng() * 6;
@@ -236,9 +257,9 @@ export function generateLevel(level: number, cycle: number, player: PlayerStats)
   let bossHp = 0;
   if (eraBoss) {
     endD = finishD + 18;
-    bossHp = Math.max(30, Math.round(dps() * Math.min(14, 5 + level * 0.22 + cy * 1.5) * relief));
+    bossHp = Math.max(30, Math.round(dps() * Math.min(14, 5 + hard * 0.4) * relief));
   } else {
-    // ทุ่งสมบัติ: คริสตัลแถวละ 3 ก้อน ยิ่งลึกยิ่งแข็งและยิ่งได้เหรียญเยอะ
+    // ทุ่งคริสตัล: แถวละ 3 ก้อน ยิ่งลึกยิ่งแข็งและยิ่งได้เหรียญเยอะ บางก้อนมีดาว
     let cd = finishD + 8;
     for (let k = 0; k < 14; k++) {
       for (const x of LANES) {
@@ -247,8 +268,9 @@ export function generateLevel(level: number, cycle: number, player: PlayerStats)
           d: cd,
           x,
           hp: Math.max(2, Math.round(dps() * 0.3 * Math.pow(1.45, k))),
-          coins: Math.round((3 + hard * 0.6) * Math.pow(1.32, k)),
+          coins: Math.round((3 + hard * 0.8) * Math.pow(1.32, k)),
           tier: k,
+          star: k >= 2 && rng() < 0.22,
         });
       }
       cd += 5.5;
@@ -258,7 +280,9 @@ export function generateLevel(level: number, cycle: number, player: PlayerStats)
 
   return {
     level,
-    cycle,
+    timeline,
+    inEra,
+    eraOrd,
     hard,
     era,
     eraBoss,

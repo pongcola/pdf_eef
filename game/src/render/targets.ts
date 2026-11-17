@@ -17,11 +17,13 @@ import {
   TorusGeometry,
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { ELITE_COLOR, ERAS, PLAYER_COLOR } from '../eras.ts';
+import { ERAS, PLAYER_COLOR, TIER_COLORS } from '../eras.ts';
 import { STAT_LABEL, type StatKind } from '../game/level.ts';
 import { part, unitGeometry, unitMaterial } from './units.ts';
 
 export type TargetKind = 'block' | 'cage' | 'capsule' | 'crystal' | 'stat';
+
+const starMat = new MeshLambertMaterial({ color: 0xffd23f, emissive: new Color(0x8a6a00) });
 
 const merge = (parts: BufferGeometry[]) => mergeGeometries(parts, false)!;
 const vcMat = new MeshLambertMaterial({ vertexColors: true });
@@ -235,8 +237,10 @@ export class CapsuleTarget extends Target {
   readonly unit: Mesh;
   private readonly glass: Mesh;
   private readonly cap: Mesh;
-  constructor(era: number, x: number, z: number, hp: number) {
+  readonly tier: number;
+  constructor(era: number, x: number, z: number, hp: number, tier: number) {
     super(x, z, hp);
+    this.tier = tier;
     this.halfW = 0.5;
     this.halfD = 0.5;
     const ring = new Mesh(capGeo, padEdgeMat);
@@ -249,7 +253,7 @@ export class CapsuleTarget extends Target {
     this.cap = new Mesh(capGeo, padEdgeMat);
     this.cap.position.y = 1.66;
     this.group.add(this.cap);
-    this.unit = staticUnit(era, ELITE_COLOR, 1.05);
+    this.unit = staticUnit(era, TIER_COLORS[tier - 1], 1 + (tier - 1) * 0.05);
     this.unit.position.y = 0.27;
     this.group.add(this.unit);
   }
@@ -279,8 +283,11 @@ export class RecruitPad {
   readonly x: number;
   readonly z: number;
   readonly capsules: CapsuleTarget[] = [];
+  readonly tier: number;
   collected = false;
-  constructor(era: number, x: number, z: number, count: number, hp: number) {
+  label: HTMLElement | null = null;
+  constructor(era: number, x: number, z: number, count: number, hp: number, tier: number) {
+    this.tier = tier;
     this.x = x;
     this.z = z;
     const pad = new Mesh(new CylinderGeometry(1.55, 1.65, 0.16, 24), padMat);
@@ -291,7 +298,7 @@ export class RecruitPad {
     edge.position.set(x, 0.17, z);
     this.group.add(edge);
     for (let i = 0; i < count; i++) {
-      const c = new CapsuleTarget(era, x + (i - (count - 1) / 2) * 1.2, z, hp);
+      const c = new CapsuleTarget(era, x + (i - (count - 1) / 2) * 1.2, z, hp, tier);
       this.capsules.push(c);
       this.group.add(c.group);
     }
@@ -306,12 +313,13 @@ export class RecruitPad {
 
 // ---------- คริสตัลในทุ่งสมบัติ ----------
 
-const TIER_COLORS = [0x4aa3ff, 0x36d1e0, 0x3ddc84, 0x9be22d, 0xffd23f, 0xff9f1c, 0xff5d5d, 0xff4fd8, 0xb46bff, 0xffffff];
-const crystalMats = TIER_COLORS.map(
+const CRYSTAL_COLORS = [0x4aa3ff, 0x36d1e0, 0x3ddc84, 0x9be22d, 0xffd23f, 0xff9f1c, 0xff5d5d, 0xff4fd8, 0xb46bff, 0xffffff];
+const crystalMats = CRYSTAL_COLORS.map(
   (c) => new MeshLambertMaterial({ color: c, emissive: new Color(c).multiplyScalar(0.25), flatShading: true }),
 );
 const crystalBaseMat = new MeshLambertMaterial({ color: 0x3b3f4c });
 const shardGeo = new OctahedronGeometry(0.6, 0);
+const starGeo = new OctahedronGeometry(0.42, 0);
 const crystalBaseGeo = new CylinderGeometry(1.0, 1.1, 0.3, 8);
 
 export class CrystalTarget extends Target {
@@ -319,14 +327,17 @@ export class CrystalTarget extends Target {
   readonly coins: number;
   readonly tier: number;
   readonly color: number;
-  constructor(x: number, z: number, hp: number, coins: number, tier: number) {
+  readonly star: boolean;
+  private starMesh: Mesh | null = null;
+  constructor(x: number, z: number, hp: number, coins: number, tier: number, star: boolean) {
     super(x, z, hp);
     this.coins = coins;
     this.tier = tier;
+    this.star = star;
     this.halfW = 1.2;
     this.halfD = 0.7;
-    const ti = Math.min(TIER_COLORS.length - 1, tier);
-    this.color = TIER_COLORS[ti];
+    const ti = Math.min(CRYSTAL_COLORS.length - 1, tier);
+    this.color = CRYSTAL_COLORS[ti];
     const mat = crystalMats[ti];
     const base = new Mesh(crystalBaseGeo, crystalBaseMat);
     base.position.y = 0.15;
@@ -342,6 +353,47 @@ export class CrystalTarget extends Target {
       small.rotation.z = -s * 0.45;
       this.group.add(small);
     }
+    if (star) {
+      this.starMesh = new Mesh(starGeo, starMat);
+      this.starMesh.position.y = 3.3;
+      this.group.add(this.starMesh);
+    }
+  }
+
+  update(dt: number, t: number): void {
+    super.update(dt, t);
+    if (this.starMesh) this.starMesh.rotation.y = t * 2.5;
+  }
+}
+
+// ---------- กองเงินบนถนน ----------
+
+const cashGeo = merge([
+  ...[0, 1, 2].map((i) => part(new BoxGeometry(0.9, 0.22, 0.5), 0x3ea85a, (i - 1) * 0.15, 0.12 + i * 0.24, (i % 2) * 0.08)),
+  ...[0, 1, 2].map((i) => part(new BoxGeometry(0.2, 0.23, 0.52), 0xf0f0e0, (i - 1) * 0.15, 0.12 + i * 0.24, (i % 2) * 0.08)),
+]);
+
+export class CashStack {
+  readonly group = new Group();
+  readonly x: number;
+  readonly z: number;
+  readonly value: number;
+  taken = false;
+  constructor(x: number, z: number, value: number) {
+    this.x = x;
+    this.z = z;
+    this.value = value;
+    for (const ox of [-0.5, 0.5]) {
+      const m = new Mesh(cashGeo, vcMat);
+      m.position.set(ox, 0, 0);
+      m.rotation.y = ox * 0.6;
+      this.group.add(m);
+    }
+    this.group.position.set(x, 0, z);
+  }
+
+  update(t: number): void {
+    if (!this.taken) this.group.rotation.y = Math.sin(t * 2 + this.z) * 0.25;
   }
 }
 

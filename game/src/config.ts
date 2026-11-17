@@ -15,18 +15,27 @@ export const LANE_X = 3.2;
 export const RUN_SPEED = 7;
 /** ระยะห่างระหว่างทหารในฝูง */
 export const UNIT_SPACING = 0.42;
-/** จำนวนด่านต่อ 1 ยุค (ด่านสุดท้ายของยุคเป็นบอส) */
+/** จำนวนด่านต่อ 1 ยุค (ด่านสุดท้ายของยุคเป็นบอส/ปราสาท) */
 export const LEVELS_PER_ERA = 5;
-/** จำนวนยุคต่อ 1 รอบ (เคลียร์ครบแล้วเริ่มรอบใหม่ที่ยากขึ้น) */
-export const ERAS_PER_CYCLE = 6;
-export const LEVELS_PER_CYCLE = LEVELS_PER_ERA * ERAS_PER_CYCLE;
+/** จำนวนยุคต่อ 1 ไทม์ไลน์ (ครบแล้วเริ่มไทม์ไลน์ใหม่ที่ยากขึ้น) */
+export const ERAS_PER_TIMELINE = 6;
+export const LEVELS_PER_TIMELINE = LEVELS_PER_ERA * ERAS_PER_TIMELINE;
+
+/** รางวัลเคลียร์ยุค (stamina เกินหลอดได้) */
+export const ERA_CLEAR_STAMINA = 5;
+export const ERA_CLEAR_STARS = 10;
+/** เหรียญเริ่มต้นเมื่อขึ้นยุคใหม่ */
+export const ERA_START_COINS = 100;
+/** เหรียญที่เหลือตอนจบยุค แลกเป็นดาว: กี่เหรียญต่อ 1 ดาว */
+export const COINS_PER_STAR = 400;
 
 /** การยิง */
 export const BASE_FIRE_RATE = 2.2; // นัด/วินาที ต่อทหาร 1 ตัว
 export const BASE_RANGE = 13; // ระยะยิง
 export const PROJECTILE_SPEED = 26;
-/** ทหารพิเศษ (จากแท่นเก็บทหาร) แรงกว่าปกติกี่เท่า */
-export const ELITE_DAMAGE = 2.5;
+/** ระดับทหาร 1–5: แรงกว่าปกติกี่เท่า */
+export const TIER_DAMAGE = [1, 1.8, 3, 5, 8];
+export const MAX_TIER = TIER_DAMAGE.length;
 
 /** บอส */
 export const BOSS_STOMP_INTERVAL = 1.7;

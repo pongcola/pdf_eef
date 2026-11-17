@@ -876,3 +876,387 @@ body {
   background: linear-gradient(180deg, #ffcf33, #e0a800);
   box-shadow: 0 4px 0 #9c7400;
 }
+
+/* ---------- ไอคอน (รูปจากช่องรูป หรืออีโมจิ) ---------- */
+.ico {
+  display: inline-block;
+  vertical-align: -0.18em;
+  line-height: 1;
+}
+
+img.ico {
+  width: 1.25em;
+  height: 1.25em;
+  object-fit: contain;
+}
+
+.skinned {
+  background-color: transparent !important;
+  background-size: 100% 100% !important;
+  background-repeat: no-repeat !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.logo-img {
+  display: block;
+  width: min(78vw, 360px);
+  margin: 0 auto;
+}
+
+.banner-img {
+  display: block;
+  width: 100%;
+  max-height: 120px;
+  object-fit: contain;
+  margin: -6px auto 0;
+}
+
+.pill.stars b {
+  color: var(--gold);
+}
+
+.topbar .stars {
+  margin-left: 0;
+}
+
+.topbar .pill {
+  padding-right: 10px;
+  font-size: 18px;
+}
+
+.era-card {
+  border: 0;
+  color: #fff;
+  font-family: inherit;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.era-tl {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--gold);
+}
+
+.side-btns {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.side-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--panel);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.3);
+}
+
+.side-btn .ico {
+  font-size: 20px;
+}
+
+.label.tier {
+  padding: 1px 10px;
+  font-size: 15px;
+  background: linear-gradient(180deg, #2ec4b6, #1b8f85);
+}
+
+.floater.star {
+  color: var(--gold);
+  font-size: 30px;
+}
+
+.rewards-title {
+  margin-top: 12px;
+  font-size: 15px;
+  color: var(--muted);
+  letter-spacing: 2px;
+}
+
+.rewards {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin: 8px 0 12px;
+}
+
+.rw {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 78px;
+  padding: 8px 10px 6px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.rw .ico {
+  font-size: 34px;
+}
+
+.rw b {
+  font-size: 20px;
+}
+
+.rw.coin b,
+.rw.star b {
+  color: var(--gold);
+}
+
+.rw.stamina b {
+  color: #9ef0ff;
+}
+
+.survivors {
+  margin-bottom: 14px;
+  color: var(--muted);
+}
+
+.survivors b {
+  color: #fff;
+  font-size: 18px;
+}
+
+/* ---------- ไทม์ไลน์ ---------- */
+.card.timeline {
+  max-height: 94vh;
+  overflow-y: auto;
+}
+
+.tl-list {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 12px 0 16px;
+  padding-left: 22px;
+}
+
+.tl-list::before {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: 10px;
+  bottom: 10px;
+  width: 4px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.tl-row {
+  position: relative;
+}
+
+.tl-dot {
+  position: absolute;
+  left: -20px;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  margin-top: -7px;
+  border-radius: 50%;
+  background: #4a5272;
+  border: 2px solid #fff;
+}
+
+.tl-row.clear .tl-dot {
+  background: var(--green);
+}
+
+.tl-row.current .tl-dot {
+  background: var(--gold);
+  box-shadow: 0 0 0 4px rgba(255, 207, 51, 0.35);
+}
+
+.tl-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 62px;
+  padding: 8px 12px;
+  border-radius: 14px;
+  background-size: cover !important;
+  background-position: center !important;
+  border: 3px solid rgba(255, 255, 255, 0.25);
+  text-align: left;
+  overflow: hidden;
+}
+
+.tl-row.current .tl-card {
+  border-color: var(--gold);
+}
+
+.tl-row.locked .tl-card,
+.tl-row.next .tl-card {
+  filter: grayscale(0.7) brightness(0.65);
+}
+
+.tl-row.fresh .tl-card {
+  animation: pop 0.6s ease-out;
+}
+
+.tl-ic {
+  font-size: 30px;
+}
+
+.tl-name {
+  flex: 1;
+  font-weight: 700;
+  font-size: 17px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+}
+
+.tl-name small {
+  display: block;
+  font-weight: 400;
+  font-size: 12px;
+}
+
+.tl-badge {
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.tl-badge.clear {
+  background: var(--green);
+}
+
+.tl-badge.cur {
+  background: var(--gold);
+  color: #3a2a00;
+}
+
+.tl-badge.next {
+  background: var(--red);
+}
+
+.tl-badge.lock {
+  background: rgba(0, 0, 0, 0.45);
+  font-size: 16px;
+}
+
+.newera-title {
+  font-size: 46px;
+  font-weight: 800;
+  color: var(--gold);
+  text-shadow: 0 5px 0 #b07d00;
+  line-height: 1.1;
+}
+
+.newera-name {
+  margin-top: 6px;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.newtl {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 2px 12px;
+  border-radius: 999px;
+  background: var(--red);
+  font-weight: 700;
+}
+
+.reset-note,
+.conv {
+  margin-top: 6px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+/* ---------- ค่ายฝึก ---------- */
+.camp-sub {
+  margin-top: -10px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.camp-stars {
+  margin: 8px 0 12px;
+  font-size: 22px;
+}
+
+.camp-stars b {
+  color: var(--gold);
+}
+
+.camp-list {
+  display: grid;
+  gap: 8px;
+}
+
+.camp-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.07);
+  text-align: left;
+}
+
+.camp-ic {
+  font-size: 30px;
+}
+
+.camp-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.camp-name {
+  font-weight: 700;
+}
+
+.camp-name small {
+  color: var(--gold);
+  font-weight: 600;
+}
+
+.camp-desc {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.camp-desc b {
+  color: #fff;
+  font-weight: 600;
+}
+
+.camp-buy {
+  min-width: 72px;
+  min-height: 40px;
+  border: 0;
+  border-radius: 12px;
+  background: #4a5272;
+  color: #c9cee0;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.camp-buy.can {
+  background: linear-gradient(180deg, #ffcf33, #e0a800);
+  color: #3a2a00;
+  box-shadow: 0 3px 0 #9c7400;
+}
+
+.version {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--muted);
+}

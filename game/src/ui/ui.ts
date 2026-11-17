@@ -1,6 +1,7 @@
 import { LEVELS_PER_ERA, STAMINA_MAX, STAMINA_RUN_COST } from '../config.ts';
-import type { UpgradeId } from '../economy.ts';
+import type { MetaId, UpgradeId } from '../economy.ts';
 import type { EraDef } from '../eras.ts';
+import { applySkins, artUrl, ico } from './art.ts';
 import type { SaveData } from '../save.ts';
 import { formatMs, msToNextStamina, refreshStamina } from '../stamina.ts';
 import { sfx, unlockAudio } from '../audio.ts';
@@ -16,12 +17,38 @@ export interface UIHandlers {
   reset(): void;
   /** วงล้อหยุดที่ตัวคูณ mult; คืนค่ารางวัลรวม */
   wheel(mult: number): number;
+  meta(id: MetaId): void;
+  timeline(justCleared: boolean): TimelineData;
+}
+
+export interface TimelineData {
+  timeline: number;
+  current: number;
+  justCleared: boolean;
+  eras: { era: EraDef; state: 'clear' | 'current' | 'next' | 'locked' }[];
+}
+
+export interface CampData {
+  stars: number;
+  items: { id: MetaId; name: string; icon: string; lvl: number; max: number; desc: string; next: string; cost: number; maxed: boolean; affordable: boolean }[];
+}
+
+export interface EraClearInfo {
+  from: EraDef;
+  to: EraDef;
+  timeline: number;
+  newTimeline: boolean;
+  stamina: number;
+  stars: number;
+  converted: number;
+  startCoins: number;
 }
 
 export interface MenuData {
   save: SaveData;
   now: number;
   era: EraDef;
+  timeline: number;
   upgrades: {
     id: UpgradeId;
     name: string;
@@ -38,11 +65,10 @@ export interface ResultData {
   win: boolean;
   level: number;
   reward: number;
+  stars: number;
   collected: number;
   survivors: number;
-  evolved: EraDef | null;
-  /** > 0 เมื่อเพิ่งเริ่มรอบใหม่ (เลขรอบ) */
-  newCycle: number;
+  eraClear: EraClearInfo | null;
   castle: boolean;
   wheel: boolean;
   income: number;
@@ -58,7 +84,6 @@ export interface HudStats {
   power: number;
 }
 
-const ERA_ICONS = ['🪨', '🏛️', '🛡️', '💥', '🚁', '🚀'];
 const WHEEL = [
   { m: 1.5, c: '#3f8cff' },
   { m: 2, c: '#2fbf63' },
@@ -95,6 +120,8 @@ export class UI {
   private pauseModal: HTMLElement;
   private resultModal: HTMLElement;
   private settingsModal: HTMLElement;
+  private campModal: HTMLElement;
+  private timelineModal: HTMLElement;
   private toastEl: HTMLElement;
   private crowdLabel: HTMLElement;
   private dmgPool: HTMLElement[] = [];
@@ -103,6 +130,7 @@ export class UI {
   private resetArmed = 0;
   private hudKey = '';
   private wheelSpun = false;
+  private lastEc: EraClearInfo | null = null;
 
   constructor(root: HTMLElement, h: UIHandlers) {
     this.h = h;
@@ -123,21 +151,27 @@ export class UI {
       'screen menu hidden',
       `
       <div class="topbar">
-        <div class="pill coins"><span class="ic">🪙</span><b data-coins>0</b></div>
-        <div class="pill stamina"><span class="ic">⚡</span><b data-st>10/10</b><small data-st-timer></small></div>
-        <button class="icon-btn" data-act="settings" aria-label="ตั้งค่า">⚙️</button>
+        <div class="pill coins">${ico('coin', 'ic')}<b data-coins>0</b></div>
+        <div class="pill stars">${ico('star', 'ic')}<b data-stars>0</b></div>
+        <div class="pill stamina">${ico('stamina', 'ic')}<b data-st>10/10</b><small data-st-timer></small></div>
+        <button class="icon-btn" data-act="settings" aria-label="ตั้งค่า">${ico('settings')}</button>
       </div>
       <div class="title">
-        <div class="logo"><span>CROWD</span><span>AGES</span></div>
+        ${artUrl('logo') ? `<img class="logo-img" src="${artUrl('logo')}" alt="Crowd Ages">` : '<div class="logo"><span>CROWD</span><span>AGES</span></div>'}
         <div class="subtitle">ยุคแห่งฝูงชน</div>
-        <div class="era-card">
+        <button class="era-card" data-act="timeline">
+          <div class="era-tl" data-tl></div>
           <div class="era-name" data-era></div>
           <div class="era-dots" data-dots></div>
+        </button>
+        <div class="side-btns">
+          <button class="side-btn" data-act="timeline">${ico('timeline')}<span>ไทม์ไลน์</span></button>
+          <button class="side-btn" data-act="camp">${ico('camp')}<span>ค่ายฝึก</span></button>
         </div>
       </div>
       <div class="bottom">
         <div class="upgrades" data-upgrades></div>
-        <button class="play-btn" data-act="play"><span data-play-text>เล่น</span><em>⚡${STAMINA_RUN_COST}</em></button>
+        <button class="play-btn" data-act="play"><span data-play-text>เล่น</span><em>${ico('stamina')}${STAMINA_RUN_COST}</em></button>
         <div class="play-sub" data-playsub></div>
       </div>`,
     );
@@ -149,18 +183,18 @@ export class UI {
       `
       <div class="hud-top">
         <div class="lvl-chip" data-hudlvl>ด่าน 1</div>
-        <div class="progress"><div class="bar" data-prog></div><span class="boss-ic" data-bossic>💎</span></div>
-        <button class="icon-btn" data-act="pause" aria-label="หยุด">⏸</button>
+        <div class="progress"><div class="bar" data-prog></div><span class="boss-ic" data-bossic></span></div>
+        <button class="icon-btn" data-act="pause" aria-label="หยุด">${ico('pause')}</button>
       </div>
       <div class="hud-row">
-        <div class="chip gold">🪙 <b data-hcoins>0</b></div>
-        <div class="chip">🧍 <b data-htroops>1/8</b></div>
+        <div class="chip gold">${ico('coin')} <b data-hcoins>0</b></div>
+        <div class="chip">${ico('troop')} <b data-htroops>1/8</b></div>
       </div>
       <div class="hud-stats" data-hstats></div>`,
     );
     root.append(this.hud);
 
-    this.hint = el('div', 'hint hidden', `<div class="hand">👆</div><div>ลากนิ้วซ้าย–ขวา ทหารจะยิงเอง</div>`);
+    this.hint = el('div', 'hint hidden', `<div class="hand">${ico('hand')}</div><div>ลากนิ้วซ้าย–ขวา ทหารจะยิงเอง</div>`);
     root.append(this.hint);
 
     this.bossbar = el(
@@ -186,10 +220,15 @@ export class UI {
     root.append(this.resultModal);
     this.settingsModal = el('div', 'modal hidden');
     root.append(this.settingsModal);
+    this.campModal = el('div', 'modal hidden');
+    root.append(this.campModal);
+    this.timelineModal = el('div', 'modal hidden');
+    root.append(this.timelineModal);
     this.toastEl = el('div', 'toast hidden');
     root.append(this.toastEl);
 
     root.addEventListener('click', (e) => this.onClick(e));
+    applySkins(root);
     const unlock = () => {
       unlockAudio();
       window.removeEventListener('pointerdown', unlock);
@@ -202,18 +241,44 @@ export class UI {
   }
 
   private onClick(e: Event): void {
-    const t = (e.target as HTMLElement).closest<HTMLElement>('[data-act],[data-upg]');
+    const t = (e.target as HTMLElement).closest<HTMLElement>('[data-act],[data-upg],[data-meta]');
     if (!t || (t as HTMLButtonElement).disabled) return;
     const upg = t.dataset.upg as UpgradeId | undefined;
     if (upg) {
       this.h.upgrade(upg);
       return;
     }
+    const meta = t.dataset.meta as MetaId | undefined;
+    if (meta) {
+      this.h.meta(meta);
+      return;
+    }
     const act = t.dataset.act;
     if (act !== 'play' && act !== 'resume' && act !== 'spin') sfx.click();
     switch (act) {
       case 'play':
+        this.timelineModal.classList.add('hidden');
         this.h.play();
+        break;
+      case 'timeline':
+        this.showTimeline(this.h.timeline(false));
+        break;
+      case 'era-next':
+        this.hideResult();
+        this.showTimeline(this.h.timeline(true), this.lastEc);
+        break;
+      case 'close-timeline':
+        this.timelineModal.classList.add('hidden');
+        break;
+      case 'timeline-menu':
+        this.timelineModal.classList.add('hidden');
+        this.h.menu();
+        break;
+      case 'camp':
+        this.campModal.classList.remove('hidden');
+        break;
+      case 'close-camp':
+        this.campModal.classList.add('hidden');
         break;
       case 'pause':
         this.h.pause();
@@ -257,9 +322,11 @@ export class UI {
   }
 
   closeOverlays(): boolean {
-    if (!this.settingsModal.classList.contains('hidden')) {
-      this.settingsModal.classList.add('hidden');
-      return true;
+    for (const m of [this.settingsModal, this.campModal, this.timelineModal]) {
+      if (!m.classList.contains('hidden')) {
+        m.classList.add('hidden');
+        return true;
+      }
     }
     return false;
   }
@@ -269,14 +336,15 @@ export class UI {
   showMenu(d: MenuData): void {
     this.menu.classList.remove('hidden');
     this.q(this.menu, '[data-coins]').textContent = fmt(d.save.coins);
-    const cycle = d.save.cycle > 1 ? `<span class="cycle">รอบ ${d.save.cycle}</span>` : '';
-    this.q(this.menu, '[data-era]').innerHTML = `${cycle}${ERA_ICONS[d.era.id]} ${d.era.nameTh} <small>${d.era.nameEn}</small>`;
+    this.q(this.menu, '[data-stars]').textContent = fmt(d.save.stars);
+    this.q(this.menu, '[data-tl]').textContent = `ไทม์ไลน์ ${d.timeline}`;
+    this.q(this.menu, '[data-era]').innerHTML = `${ico(`era_${d.era.id}`)} ${d.era.nameTh} <small>${d.era.nameEn}</small>`;
     const inEra = ((d.save.level - 1) % LEVELS_PER_ERA) + 1;
     const dots = this.q(this.menu, '[data-dots]');
     dots.innerHTML = '';
     for (let i = 1; i <= LEVELS_PER_ERA; i++) {
       const dot = el('span', 'dot' + (i < inEra ? ' done' : i === inEra ? ' cur' : '') + (i === LEVELS_PER_ERA ? ' boss' : ''));
-      dot.textContent = i === LEVELS_PER_ERA ? '👑' : String(d.save.level - inEra + i);
+      dot.innerHTML = i === LEVELS_PER_ERA ? ico('crown') : String(d.save.level - inEra + i);
       dots.append(dot);
     }
     const list = this.q(this.menu, '[data-upgrades]');
@@ -286,10 +354,10 @@ export class UI {
         'button',
         'upg' + (u.affordable ? ' can' : ''),
         `<div class="upg-head" style="background:${u.color}">${u.name}</div>
-         <div class="upg-ic">${u.icon}</div>
+         <div class="upg-ic">${ico(u.icon)}</div>
          <div class="upg-lvl">Lv.${u.lvl + 1}</div>
          <div class="upg-desc">${u.desc}</div>
-         <div class="upg-cost">🪙 ${fmt(u.cost)}</div>`,
+         <div class="upg-cost">${ico('coin')} ${fmt(u.cost)}</div>`,
       );
       b.dataset.upg = u.id;
       list.append(b);
@@ -321,10 +389,10 @@ export class UI {
 
   // ---------- ระหว่างเล่น ----------
 
-  showHud(level: number, cycle: number, eraBoss: boolean): void {
+  showHud(level: number, timeline: number, eraBoss: boolean): void {
     this.hud.classList.remove('hidden');
-    this.q(this.hud, '[data-hudlvl]').textContent = cycle > 1 ? `รอบ ${cycle} • ด่าน ${level}` : `ด่าน ${level}`;
-    this.q(this.hud, '[data-bossic]').textContent = eraBoss ? '👑' : '💎';
+    this.q(this.hud, '[data-hudlvl]').textContent = timeline > 1 ? `TL${timeline} • ด่าน ${level}` : `ด่าน ${level}`;
+    this.q(this.hud, '[data-bossic]').innerHTML = ico(eraBoss ? 'crown' : 'crystal');
     this.hudKey = '';
     this.setProgress(0);
   }
@@ -347,9 +415,9 @@ export class UI {
     tr.textContent = `${s.troops}/${s.cap}`;
     tr.parentElement!.classList.toggle('full', s.troops >= s.cap);
     const chip = (ic: string, name: string, v: number) =>
-      `<div class="stat ${v > 1.001 ? 'up' : v < 0.999 ? 'down' : ''}">${ic} ${name} ×${v.toFixed(2)}</div>`;
+      `<div class="stat ${v > 1.001 ? 'up' : v < 0.999 ? 'down' : ''}">${ico(ic)} ${name} ×${v.toFixed(2)}</div>`;
     this.q(this.hud, '[data-hstats]').innerHTML =
-      chip('🔥', 'อัตรายิง', s.rate) + chip('🎯', 'ระยะ', s.range) + chip('💥', 'พลัง', s.power);
+      chip('stat_rate', 'อัตรายิง', s.rate) + chip('stat_range', 'ระยะ', s.range) + chip('stat_power', 'พลัง', s.power);
   }
 
   showHint(on: boolean): void {
@@ -360,7 +428,7 @@ export class UI {
     this.pauseModal.classList.toggle('hidden', !on);
   }
 
-  makeLabel(kind: 'enemy' | 'hp'): HTMLElement {
+  makeLabel(kind: 'enemy' | 'hp' | 'tier'): HTMLElement {
     const l = el('div', kind === 'hp' ? 'label hpl' : `label ${kind}`);
     l.style.display = 'none';
     this.labels.append(l);
@@ -375,6 +443,16 @@ export class UI {
     if (l.style.display === 'none') l.style.display = '';
     const txt = fmt(n);
     if (l.textContent !== txt) l.textContent = txt;
+    l.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -100%)`;
+  }
+
+  setLabelText(l: HTMLElement, text: string, x: number, y: number, vis: boolean): void {
+    if (!vis) {
+      if (l.style.display !== 'none') l.style.display = 'none';
+      return;
+    }
+    if (l.style.display === 'none') l.style.display = '';
+    if (l.textContent !== text) l.textContent = text;
     l.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -100%)`;
   }
 
@@ -405,9 +483,16 @@ export class UI {
     setTimeout(() => f.remove(), 1000);
   }
 
+  starPop(x: number, y: number): void {
+    const f = el('div', 'floater star', `${ico('star')}+1`);
+    f.style.left = `${x}px`;
+    f.style.top = `${y}px`;
+    this.floaters.append(f);
+    setTimeout(() => f.remove(), 1100);
+  }
+
   coinPop(text: string, x: number, y: number): void {
-    const f = el('div', 'floater coin');
-    f.textContent = `🪙${text}`;
+    const f = el('div', 'floater coin', `${ico('coin')}${text}`);
     f.style.left = `${x}px`;
     f.style.top = `${y}px`;
     this.floaters.append(f);
@@ -416,7 +501,7 @@ export class UI {
 
   showBossBar(eraBoss: boolean): void {
     this.bossbar.classList.remove('hidden');
-    this.q(this.bossbar, '[data-bossname]').textContent = eraBoss ? '👑 ราชันแห่งยุค' : '💀 บอส';
+    this.q(this.bossbar, '[data-bossname]').innerHTML = eraBoss ? `${ico('crown')} ราชันแห่งยุค` : 'บอส';
   }
 
   hideBossBar(): void {
@@ -439,12 +524,11 @@ export class UI {
     const st = r.save.stamina;
     const next = msToNextStamina(st, Date.now());
     const can = st.value >= STAMINA_RUN_COST;
-    const stLine = `⚡ ${st.value}/${STAMINA_MAX}` + (next > 0 ? ` • +1 ใน ${formatMs(next)}` : '');
-    const nextLabel = r.newCycle ? `เริ่มรอบ ${r.newCycle}` : `ด่านต่อไป (${r.save.level})`;
+    const stLine = `${ico('stamina')} ${st.value}/${STAMINA_MAX}` + (next > 0 ? ` • +1 ใน ${formatMs(next)}` : '');
     const segAngle = 360 / WHEEL.length;
     const wheelHtml = r.wheel
       ? `<div class="wheel-box" data-wheelbox>
-          <div class="wheel-title">🎁 วงล้อโชค! หมุนฟรี</div>
+          <div class="wheel-title">${ico('gift')} วงล้อโชค! หมุนฟรี</div>
           <div class="wheel-wrap">
             <div class="wheel-pointer">▼</div>
             <div class="wheel" data-wheel style="background:conic-gradient(${WHEEL.map((s, i) => `${s.c} ${i * segAngle}deg ${(i + 1) * segAngle}deg`).join(',')})">
@@ -454,30 +538,113 @@ export class UI {
           <button class="spin-btn" data-act="spin">หมุน!</button>
         </div>`
       : '';
+    const banner = r.win ? artUrl('banner_win') : artUrl('banner_lose');
+    const title = banner
+      ? `<img class="banner-img" src="${banner}" alt="">`
+      : `<div class="result-title">${r.win ? 'ผ่านด่าน!' : 'พ่ายแพ้'}</div>`;
+    const ec = r.eraClear;
+    const buttons = ec
+      ? `<button class="play-btn" data-act="era-next"><span>ไปยุคถัดไป</span></button>`
+      : `<button class="play-btn" data-act="play" ${can ? '' : 'disabled'}>
+          <span>${r.win ? `ด่านต่อไป (${r.save.level})` : 'ลองอีกครั้ง'}</span><em>${ico('stamina')}${STAMINA_RUN_COST}</em>
+        </button>
+        <button class="ghost-btn" data-act="menu">เมนู / อัปเกรด</button>`;
     this.wheelSpun = false;
+    this.lastEc = r.eraClear;
     this.resultModal.innerHTML = `
       <div class="card result ${r.win ? 'win' : 'lose'}">
-        <div class="result-title">${r.win ? 'ชนะ!' : 'พ่ายแพ้'}</div>
-        <div class="result-sub">${r.win ? `ผ่านด่าน ${r.level} แล้ว${r.castle ? ' • ทะลวงปราสาท!' : ''}` : `ด่าน ${r.level} • ลองใหม่อีกครั้ง`}</div>
-        ${
-          r.newCycle
-            ? `<div class="evolve"><div class="evolve-ic">🔁</div><div>เคลียร์ครบทุกยุค! เริ่ม<br><b>รอบที่ ${r.newCycle}</b><br><small>ด่านยากขึ้น • ทหารเริ่มต้นเหลือ 1 คน</small></div></div>`
-            : r.evolved
-              ? `<div class="evolve"><div class="evolve-ic">${ERA_ICONS[r.evolved.id]}</div><div>วิวัฒนาการสู่<br><b>${r.evolved.nameTh}</b></div></div>`
-              : ''
-        }
-        <div class="stats">
-          ${r.win ? `<div><span>ทหารรอดชีวิต</span><b>${fmt(r.survivors)}</b></div>` : ''}
-          <div><span>เหรียญที่ได้</span><b class="gold" data-reward>+${fmt(r.reward)} 🪙</b></div>
+        ${title}
+        <div class="result-sub">${r.win ? `ด่าน ${r.level}${r.castle ? ' • ทะลวงปราสาท!' : ''}${ec ? ` • เคลียร์${ec.from.nameTh}!` : ''}` : `ด่าน ${r.level} • ลองใหม่อีกครั้ง`}</div>
+        <div class="rewards-title">— รางวัล —</div>
+        <div class="rewards">
+          <div class="rw coin">${ico('coin')}<b data-reward>+${fmt(r.reward)}</b></div>
+          ${r.win ? `<div class="rw star">${ico('star')}<b>+${r.stars}</b></div>` : ''}
+          ${ec ? `<div class="rw stamina">${ico('stamina')}<b>+${ec.stamina}</b></div>` : ''}
         </div>
+        ${r.win && !ec ? `<div class="survivors">ทหารรอดชีวิต <b>${fmt(r.survivors)}</b></div>` : ''}
         ${wheelHtml}
-        <button class="play-btn" data-act="play" ${can ? '' : 'disabled'}>
-          <span>${r.win ? nextLabel : 'ลองอีกครั้ง'}</span><em>⚡${STAMINA_RUN_COST}</em>
-        </button>
-        <button class="ghost-btn" data-act="menu">เมนู / อัปเกรด</button>
+        ${buttons}
         <div class="note">${stLine}</div>
       </div>`;
+    applySkins(this.resultModal);
     this.resultModal.classList.remove('hidden');
+  }
+
+  /** หน้าไทม์ไลน์ยุค (justCleared = เพิ่งเคลียร์ยุค แสดงรางวัลและป้ายยุคใหม่) */
+  showTimeline(d: TimelineData, ec?: EraClearInfo | null): void {
+    const rows = [...d.eras]
+      .map((e, i) => ({ ...e, i }))
+      .reverse()
+      .map(({ era, state, i }) => {
+        const card = artUrl(`era_card_${i}` as never);
+        const bg = card ? `background-image:url("${card}")` : `background:linear-gradient(135deg, #${era.sky.toString(16).padStart(6, '0')}, #${era.ground.toString(16).padStart(6, '0')})`;
+        const badge =
+          state === 'clear' ? `<span class="tl-badge clear">${ico('check')} เคลียร์แล้ว</span>`
+          : state === 'current' ? `<span class="tl-badge cur">กำลังเล่น</span>`
+          : state === 'next' ? `<span class="tl-badge next">ถัดไป</span>`
+          : `<span class="tl-badge lock">${ico('lock')}</span>`;
+        return `<div class="tl-row ${state}${d.justCleared && state === 'current' ? ' fresh' : ''}">
+          <div class="tl-dot"></div>
+          <div class="tl-card" style='${bg}'>
+            <div class="tl-ic">${ico(`era_${i}`)}</div>
+            <div class="tl-name">${era.nameTh}<small>${era.nameEn}</small></div>
+            ${badge}
+          </div>
+        </div>`;
+      })
+      .join('');
+    const cur = d.eras[d.current].era;
+    const nb = artUrl('banner_newera');
+    const head = d.justCleared
+      ? `${nb ? `<img class="banner-img" src="${nb}" alt="">` : '<div class="newera-title">ยุคใหม่!</div>'}
+         <div class="newera-name">${ico(`era_${d.current}`)} ${cur.nameTh}</div>
+         ${ec?.newTimeline ? `<div class="newtl">ไทม์ไลน์ ${d.timeline} • ยากขึ้น!</div>` : ''}
+         <div class="reset-note">อัปเกรดกลับเป็น Lv.1 • ทหารเริ่มใหม่</div>`
+      : `<div class="card-title">ไทม์ไลน์ ${d.timeline}</div>`;
+    const conv = ec && ec.converted > 0 ? `<div class="conv">เหรียญที่เหลือแลกเป็น ${ico('star')} +${ec.converted}</div>` : '';
+    const buttons = d.justCleared
+      ? `<button class="play-btn" data-act="play"><span>เริ่มยุคใหม่</span><em>${ico('stamina')}${STAMINA_RUN_COST}</em></button>
+         <button class="ghost-btn" data-act="timeline-menu">เมนู / ค่ายฝึก</button>`
+      : `<button class="play-btn" data-act="close-timeline"><span>ปิด</span></button>`;
+    this.timelineModal.innerHTML = `
+      <div class="card timeline">
+        ${head}
+        ${conv}
+        <div class="tl-list">${rows}</div>
+        ${buttons}
+      </div>`;
+    applySkins(this.timelineModal);
+    this.timelineModal.classList.remove('hidden');
+  }
+
+  renderCamp(d: CampData): void {
+    const wasOpen = !this.campModal.classList.contains('hidden');
+    this.campModal.innerHTML = `
+      <div class="card camp">
+        <div class="card-title">${ico('camp')} ค่ายฝึก</div>
+        <div class="camp-sub">อัปเกรดถาวร ไม่รีเซ็ตเมื่อขึ้นยุคใหม่</div>
+        <div class="camp-stars">${ico('star')} <b>${fmt(d.stars)}</b></div>
+        <div class="camp-list">
+          ${d.items
+            .map(
+              (m) => `<div class="camp-item">
+              <div class="camp-ic">${ico(m.icon)}</div>
+              <div class="camp-info">
+                <div class="camp-name">${m.name} <small>Lv.${m.lvl}/${m.max}</small></div>
+                <div class="camp-desc">${m.desc}${m.maxed ? '' : ` → <b>${m.next}</b>`}</div>
+              </div>
+              <button class="camp-buy ${m.affordable ? 'can' : ''}" data-meta="${m.id}" ${m.affordable ? '' : 'disabled'}>
+                ${m.maxed ? 'MAX' : `${ico('star')} ${fmt(m.cost)}`}
+              </button>
+            </div>`,
+            )
+            .join('')}
+        </div>
+        <div class="note">ได้ดาวจากการชนะด่าน, คริสตัลที่มีดาว และการเคลียร์ยุค</div>
+        <button class="play-btn" data-act="close-camp"><span>ปิด</span></button>
+      </div>`;
+    applySkins(this.campModal);
+    if (wasOpen) this.campModal.classList.remove('hidden');
   }
 
   private spinWheel(): void {
@@ -506,7 +673,7 @@ export class UI {
       sfx.win();
       btn.textContent = `ได้ ×${mult}!`;
       const rw = this.q(this.resultModal, '[data-reward]');
-      rw.textContent = `+${fmt(total)} 🪙`;
+      rw.textContent = `+${fmt(total)}`;
       rw.classList.add('bump');
     }, 2700);
   }
@@ -523,18 +690,21 @@ export class UI {
     this.settingsModal.innerHTML = `
       <div class="card settings">
         <div class="card-title">ตั้งค่า</div>
-        ${row('sound', '🔊 เสียงเอฟเฟกต์', s.sound)}
-        ${row('music', '🎵 เพลง', s.music)}
-        ${row('vibration', '📳 การสั่น', s.vibration)}
+        ${row('sound', `${ico('sound')} เสียงเอฟเฟกต์`, s.sound)}
+        ${row('music', `${ico('music')} เพลง`, s.music)}
+        ${row('vibration', `${ico('vibration')} การสั่น`, s.vibration)}
         <div class="howto">
           <b>วิธีเล่น</b><br>
           ลากนิ้วซ้าย–ขวา ทหารจะยิงเอง • ยิงสิ่งกีดขวางให้แตกก่อนชน • ยิงป้าย (อัตรายิง/ระยะ/พลัง) ให้เป็นสีเขียวแล้ววิ่งผ่าน •
-          ยิงกรงเพื่อช่วยเพื่อน • ยิงแคปซูลบนแท่นแล้ววิ่งผ่านเพื่อรับทหารพิเศษ • ท้ายด่านยิงคริสตัลเก็บเหรียญ • ทุก 5 ด่านสู้ราชันแห่งยุค 👑
+          ยิงกรงเพื่อช่วยเพื่อน • ยิงแคปซูลบนแท่นแล้ววิ่งผ่านเพื่อรับทหารระดับสูง • วิ่งเก็บกองเงิน • ท้ายด่านยิงคริสตัลเก็บเหรียญ •
+          ทุก 5 ด่านสู้ราชันแห่งยุค เคลียร์แล้วขึ้นยุคใหม่ (อัปเกรดรีเซ็ต ทหารเหลือ 1 คน) • ใช้ดาวซื้ออัปเกรดถาวรที่ค่ายฝึก
         </div>
         <div class="note">ไม่มีโฆษณา • เล่นออฟไลน์ได้ • Stamina +1 ทุก 5 นาที (สูงสุด ${STAMINA_MAX})</div>
         <button class="ghost-btn danger" data-act="reset">ลบความคืบหน้าทั้งหมด</button>
         <button class="play-btn" data-act="close-settings"><span>ปิด</span></button>
+        <div class="version">Crowd Ages v${__APP_VERSION__}</div>
       </div>`;
+    applySkins(this.settingsModal);
   }
 
   toast(msg: string): void {

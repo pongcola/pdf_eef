@@ -1,4 +1,4 @@
-import { ERAS_PER_CYCLE, LEVELS_PER_ERA } from './config.ts';
+import { ERAS_PER_TIMELINE, LEVELS_PER_ERA, LEVELS_PER_TIMELINE } from './config.ts';
 
 export type DecorKind = 'stone' | 'ancient' | 'medieval' | 'gunpowder' | 'modern' | 'future';
 
@@ -62,12 +62,25 @@ export const ERAS: readonly EraDef[] = [
 
 export const PLAYER_COLOR = 0x2f7bff;
 export const ENEMY_COLOR = 0xe8433f;
-/** ทหารพิเศษ (จากแท่นเก็บทหาร) */
-export const ELITE_COLOR = 0xf2b632;
+/** สีเสื้อทหารตามระดับ 1–5 */
+export const TIER_COLORS = [PLAYER_COLOR, 0x2fbf63, 0xf2b632, 0x9b5cff, 0x38f2ff];
 
-/** level = ด่านในรอบ (1–30) */
+/** level = เลขด่านรวม (1, 2, 3, …) */
 export function eraIndexForLevel(level: number): number {
-  return Math.min(ERAS_PER_CYCLE - 1, Math.floor((level - 1) / LEVELS_PER_ERA));
+  return Math.floor((level - 1) / LEVELS_PER_ERA) % ERAS_PER_TIMELINE;
+}
+
+/** ลำดับยุคนับรวมทุกไทม์ไลน์ (0, 1, 2, …) */
+export function eraOrdinal(level: number): number {
+  return Math.floor((level - 1) / LEVELS_PER_ERA);
+}
+
+export function timelineForLevel(level: number): number {
+  return Math.floor((level - 1) / LEVELS_PER_TIMELINE) + 1;
+}
+
+export function levelInEra(level: number): number {
+  return ((level - 1) % LEVELS_PER_ERA) + 1;
 }
 
 export function isEraBossLevel(level: number): boolean {

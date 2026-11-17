@@ -13,9 +13,13 @@ import {
   BASE_RANGE,
   BOSS_STOMP_INTERVAL,
   BOSS_STOMP_KILL,
-  ELITE_DAMAGE,
-  LEVELS_PER_CYCLE,
+  COINS_PER_STAR,
+  ERA_CLEAR_STAMINA,
+  ERA_CLEAR_STARS,
+  ERA_START_COINS,
+  MAX_TIER,
   PROJECTILE_SPEED,
+  TIER_DAMAGE,
   RUN_SPEED,
   TRACK_WIDTH,
   WHEEL_CHANCE,
@@ -24,14 +28,17 @@ import {
   capacity,
   incomeMult,
   loseReward,
+  META,
+  metaCost,
   playerPower,
   startTroops,
   UPGRADES,
   upgradeCost,
   winReward,
+  type MetaId,
   type UpgradeId,
 } from '../economy.ts';
-import { ELITE_COLOR, ENEMY_COLOR, ERAS, eraIndexForLevel, PLAYER_COLOR } from '../eras.ts';
+import { ENEMY_COLOR, ERAS, eraIndexForLevel, eraOrdinal, TIER_COLORS, timelineForLevel, type EraDef } from '../eras.ts';
 import { sfx, setMusic, setSound, suspendAudio, resumeAudio } from '../audio.ts';
 import { buzz, exitApp, setVibration } from '../platform.ts';
 import { clearSave, defaultSave, loadSave, writeSave, type SaveData } from '../save.ts';
@@ -44,6 +51,7 @@ import { Projectiles } from '../render/projectiles.ts';
 import {
   BlockTarget,
   CageTarget,
+  CashStack,
   CrystalTarget,
   RecruitPad,
   StatGate,
@@ -56,6 +64,18 @@ import { generateLevel, STAT_LABEL, type LevelData } from './level.ts';
 import { Squad } from './squad.ts';
 
 type State = 'menu' | 'run' | 'bonus' | 'boss' | 'won' | 'lost' | 'result' | 'paused';
+export type EraState = 'clear' | 'current' | 'next' | 'locked';
+
+export interface EraClear {
+  from: EraDef;
+  to: EraDef;
+  timeline: number;
+  newTimeline: boolean;
+  stamina: number;
+  stars: number;
+  converted: number;
+  startCoins: number;
+}
 
 interface EnemyUnit {
   x: number;
@@ -98,8 +118,10 @@ export class Game {
   private bossPendT = 0;
 
   private squad = new Squad();
-  private swarm: UnitSwarm | null = null;
-  private eliteSwarm: UnitSwarm | null = null;
+  /** ฝูงแยกตามระดับทหาร (สีต่างกัน) */
+  private swarms: UnitSwarm[] = [];
+  private cash: CashStack[] = [];
+  private starsGot = 0;
   private projectiles: Projectiles | null = null;
   private swarmEra = -1;
   private shadow: Mesh;
@@ -213,7 +235,12 @@ export class Game {
       t.label?.remove();
       t.label = null;
     }
-    for (const p of this.pads) p.dispose();
+    for (const p of this.pads) {
+      p.dispose();
+      p.label?.remove();
+    }
+    for (const c of this.cash) c.group.removeFromParent();
+    this.cash = [];
     for (const h of this.hazards) h.group.removeFromParent();
     for (const e of this.enemies) e.swarm.dispose();
     this.boss?.dispose();
@@ -234,10 +261,11 @@ export class Game {
   buildLevel(): void {
     this.clearLevel();
     const up = this.save.upgrades;
-    this.cap = capacity(up.capacity);
-    this.baseDmg = playerPower(up.power);
-    const start = Math.min(startTroops(up.troop), this.cap);
-    this.level = generateLevel(this.save.level, this.save.cycle, {
+    const meta = this.save.meta;
+    this.cap = capacity(up.capacity, meta);
+    this.baseDmg = playerPower(up.power, meta);
+    const start = Math.min(startTroops(up.troop, meta), this.cap);
+    this.level = generateLevel(this.save.level, {
       startTroops: start,
       capacity: this.cap,
       power: this.baseDmg,
@@ -269,14 +297,14 @@ export class Game {
           break;
         }
         case 'recruit': {
-          const p = new RecruitPad(era, it.x, z, it.capsules, it.capsuleHp);
+          const p = new RecruitPad(era, it.x, z, it.capsules, it.capsuleHp, it.tier);
           this.pads.push(p);
           this.scene.add(p.group);
           for (const c of p.capsules) this.targets.push(c);
           break;
         }
         case 'crystal': {
-          const c = new CrystalTarget(it.x, z, it.hp, it.coins, it.tier);
+          const c = new CrystalTarget(it.x, z, it.hp, it.coins, it.tier, it.star);
           this.crystals.push(c);
           this.addTarget(c);
           break;
@@ -294,6 +322,12 @@ export class Game {
           this.enemies.push({ z, units, swarm, charging: false });
           break;
         }
+        case 'cash': {
+          const c = new CashStack(it.x, z, it.value);
+          this.scene.add(c.group);
+          this.cash.push(c);
+          break;
+        }
         case 'obstacle': {
           const o = createObstacle(it);
           this.scene.add(o.group);
@@ -308,14 +342,13 @@ export class Game {
       this.scene.add(this.boss.group);
     }
 
-    if (this.swarmEra !== era || !this.swarm) {
-      this.swarm?.dispose();
-      this.eliteSwarm?.dispose();
+    if (this.swarmEra !== era || !this.swarms.length) {
+      for (const sw of this.swarms) sw.dispose();
       this.projectiles?.dispose();
-      this.swarm = new UnitSwarm(era, PLAYER_COLOR, 120);
-      this.eliteSwarm = new UnitSwarm(era, ELITE_COLOR, 120);
+      this.swarms = TIER_COLORS.map((c) => new UnitSwarm(era, c, 120));
       this.projectiles = new Projectiles(era);
-      this.scene.add(this.swarm.mesh, this.eliteSwarm.mesh, this.projectiles.mesh);
+      for (const sw of this.swarms) this.scene.add(sw.mesh);
+      this.scene.add(this.projectiles.mesh);
       this.swarmEra = era;
     }
 
@@ -323,6 +356,7 @@ export class Game {
     this.squad.z = 0;
     this.rateMul = this.rangeMul = this.powMul = 1;
     this.collected = 0;
+    this.starsGot = 0;
     this.dist = 0;
     this.speed = 0;
     this.t = 0;
@@ -350,23 +384,57 @@ export class Game {
   refreshMenu(): void {
     const now = Date.now();
     refreshStamina(this.save.stamina, now);
+    const ord = eraOrdinal(this.save.level);
     this.ui.showMenu({
       save: this.save,
       now,
       era: ERAS[eraIndexForLevel(this.save.level)],
+      timeline: timelineForLevel(this.save.level),
       upgrades: UPGRADES.map((u) => {
         const lvl = this.save.upgrades[u.id];
-        const cost = upgradeCost(u, lvl);
-        return { id: u.id, name: u.nameTh, icon: u.icon, color: u.color, lvl, desc: u.describe(lvl), cost, affordable: this.save.coins >= cost };
+        const cost = upgradeCost(u, lvl, ord);
+        return { id: u.id, name: u.nameTh, icon: u.icon, color: u.color, lvl, desc: u.describe(lvl, this.save.meta), cost, affordable: this.save.coins >= cost };
       }),
     });
+    this.ui.renderCamp(this.campData());
+  }
+
+  private campData() {
+    return {
+      stars: this.save.stars,
+      items: META.map((m) => {
+        const lvl = this.save.meta[m.id];
+        const cost = metaCost(m, lvl);
+        const maxed = lvl >= m.max;
+        return { id: m.id, name: m.nameTh, icon: m.icon, lvl, max: m.max, desc: m.describe(lvl), next: maxed ? 'สูงสุดแล้ว' : m.describe(lvl + 1), cost, maxed, affordable: !maxed && this.save.stars >= cost };
+      }),
+    };
+  }
+
+  buyMeta(id: MetaId): void {
+    const def = META.find((m) => m.id === id);
+    if (!def) return;
+    const lvl = this.save.meta[id];
+    if (lvl >= def.max) return;
+    const cost = metaCost(def, lvl);
+    if (this.save.stars < cost) {
+      this.ui.toast('ดาวไม่พอ');
+      return;
+    }
+    this.save.stars -= cost;
+    this.save.meta[id] = lvl + 1;
+    writeSave(this.save);
+    sfx.coin();
+    buzz('light');
+    this.buildLevel();
+    this.refreshMenu();
   }
 
   buyUpgrade(id: UpgradeId): void {
     const def = UPGRADES.find((u) => u.id === id);
     if (!def) return;
     const lvl = this.save.upgrades[id];
-    const cost = upgradeCost(def, lvl);
+    const cost = upgradeCost(def, lvl, eraOrdinal(this.save.level));
     if (this.save.coins < cost) {
       this.ui.toast('เหรียญไม่พอ');
       return;
@@ -397,7 +465,7 @@ export class Game {
     this.hintTimer = 2.6;
     this.ui.hideMenu();
     this.ui.hideResult();
-    this.ui.showHud(this.level.level, this.level.cycle, this.level.eraBoss);
+    this.ui.showHud(this.level.level, this.level.timeline, this.level.eraBoss);
     this.ui.showHint(true);
     this.updateHud();
     sfx.click();
@@ -462,6 +530,7 @@ export class Game {
       else if (this.state === 'won' || this.state === 'lost') this.updateEnd(dt);
       for (const h of this.hazards) if (Math.abs(h.z - this.squad.z) < 90) h.update(this.t, dt);
       for (const t of this.targets) if (Math.abs(t.z - this.squad.z) < 90) t.update(dt, this.t);
+      for (const c of this.cash) if (Math.abs(c.z - this.squad.z) < 90) c.update(this.t);
       this.squad.update(dt);
       this.particles.update(dt);
     }
@@ -496,8 +565,7 @@ export class Game {
     this.squad.targetX = Math.max(-lim, Math.min(lim, this.squad.targetX));
     this.squad.x += (this.squad.targetX - this.squad.x) * (1 - Math.exp(-dt * 12));
     const moving = this.speed > 0.5;
-    this.swarm!.run.value = moving ? 1 : 0.25;
-    this.eliteSwarm!.run.value = moving ? 1 : 0.25;
+    for (const sw of this.swarms) sw.run.value = moving ? 1 : 0.25;
     this.ui.setProgress(Math.min(1, this.dist / L.finishD));
 
     // ---- ยิง ----
@@ -510,6 +578,7 @@ export class Game {
       if (this.squad.count === 0) return this.lose();
       this.checkGates();
       this.checkPads();
+      this.checkCash();
       this.updateEnemies(dt);
       if (this.squad.count === 0) return this.lose();
       if (this.dist >= L.finishD) {
@@ -545,7 +614,7 @@ export class Game {
       tr.cool += interval * (0.85 + Math.random() * 0.3);
       if (tr.cool < 0) tr.cool = interval * Math.random();
       const x = this.clampX(this.squad.x + tr.ox) + 0.22;
-      this.projectiles!.fire(x, 0.85, this.squad.z + tr.oz - 0.4, tr.elite ? dmg * ELITE_DAMAGE : dmg, range, tr.elite);
+      this.projectiles!.fire(x, 0.85, this.squad.z + tr.oz - 0.4, dmg * TIER_DAMAGE[tr.tier - 1], range, tr.tier > 1);
       shots++;
     }
     if (shots) sfx.shoot();
@@ -611,7 +680,7 @@ export class Game {
     } else if (t instanceof CageTarget) {
       t.group.visible = false;
       this.particles.burst(t.x, 1, t.z, 0x4a4f5a, 18, 6, 0.16, 0.9);
-      for (const s of t.prisonerSpots()) this.addTroop(false, s.x, s.z);
+      for (const s of t.prisonerSpots()) this.addTroop(1, s.x, s.z);
       this.ui.floatText(`+${t.prisoners} 🧍`, p.x, p.y, true);
       sfx.join();
       buzz('medium');
@@ -620,6 +689,12 @@ export class Game {
       this.particles.burst(t.x, 1.4, t.z, t.color, 22, 7, 0.2, 1.0);
       this.collected += t.coins;
       this.ui.coinPop(`+${t.coins}`, p.x, p.y);
+      if (t.star) {
+        this.starsGot++;
+        const q = this.project(t.x, 3.5, t.z);
+        this.ui.starPop(q.x, q.y);
+        sfx.join();
+      }
       sfx.breakBlock();
     } else if (t.kind === 'capsule') {
       (t as unknown as { shatter(): void }).shatter();
@@ -628,16 +703,37 @@ export class Game {
     }
   }
 
-  private addTroop(elite: boolean, wx: number, wz: number): void {
+  private addTroop(tier: number, wx: number, wz: number): void {
     if (this.squad.count < this.cap) {
-      this.squad.add(elite, wx, wz);
+      this.squad.add(tier, wx, wz);
       return;
     }
-    if (elite && this.squad.promote()) return;
+    if (tier > 1 && this.squad.promote(tier)) return;
     // ฝูงเต็ม: แปลงเป็นเหรียญ
-    this.collected += elite ? 8 : 3;
+    const v = 3 * tier;
+    this.collected += v;
     const p = this.project(wx, 1.5, wz);
-    this.ui.coinPop(`เต็ม +${elite ? 8 : 3}`, p.x, p.y);
+    this.ui.coinPop(`เต็ม +${v}`, p.x, p.y);
+  }
+
+  private checkCash(): void {
+    const rx = this.squad.radiusX();
+    for (const c of this.cash) {
+      if (c.taken || this.squad.z - this.squad.radiusZ() > c.z + 0.5) continue;
+      if (this.squad.z + 1 < c.z) {
+        c.taken = true;
+        continue;
+      }
+      if (Math.abs(this.squad.x - c.x) < rx + 0.8) {
+        c.taken = true;
+        c.group.visible = false;
+        this.collected += c.value;
+        const p = this.project(c.x, 1.2, c.z);
+        this.ui.coinPop(`+${c.value}`, p.x, p.y);
+        this.particles.burst(c.x, 0.6, c.z, 0x3ea85a, 10, 4, 0.14, 0.6);
+        sfx.coin();
+      }
+    }
   }
 
   /** สถิติการตายของทหาร (ใช้ตรวจความยาก) */
@@ -649,7 +745,7 @@ export class Game {
     const wx = this.clampX(this.squad.x + tr.ox);
     const wz = this.squad.z + tr.oz;
     this.squad.remove(i);
-    this.particles.burst(wx, 0.6, wz, tr.elite ? ELITE_COLOR : PLAYER_COLOR, 6, 4);
+    this.particles.burst(wx, 0.6, wz, TIER_COLORS[tr.tier - 1], 6, 4);
     sfx.pop();
     buzz('light');
   }
@@ -717,12 +813,12 @@ export class Game {
       for (const c of p.capsules) {
         if (c.alive) continue;
         c.unit.visible = false;
-        this.addTroop(true, c.x, c.z);
+        this.addTroop(p.tier, c.x, c.z);
         got++;
       }
       if (got) {
         const pp = this.project(p.x, 2, p.z);
-        this.ui.floatText(`+${got} ทหารพิเศษ`, pp.x, pp.y, true);
+        this.ui.floatText(`+${got} ทหาร Lv.${p.tier}`, pp.x, pp.y, true);
         sfx.join();
         buzz('medium');
       }
@@ -867,44 +963,72 @@ export class Game {
     const L = this.level;
     const up = this.save.upgrades;
     let reward: number;
-    let newCycle = false;
+    let stars = 0;
+    let eraClear: EraClear | null = null;
     if (win) {
-      reward = winReward(L.level, this.collected, L.eraBoss, L.cycle, up.economy);
+      reward = winReward(L.inEra, L.eraOrd, this.collected, L.eraBoss, up.economy);
+      stars = 1 + this.starsGot;
+      this.save.coins += reward;
+      this.save.stars += stars;
       this.save.level = L.level + 1;
       this.save.failStreak = 0;
-      if (this.save.level > LEVELS_PER_CYCLE) {
-        // เคลียร์ครบทุกยุค: เริ่มรอบใหม่ที่ยากขึ้น ทหารเริ่มต้นเหลือ 1 ตัว
-        this.save.cycle += 1;
-        this.save.level = 1;
-        this.save.upgrades.troop = 0;
-        newCycle = true;
+      if (L.eraBoss) {
+        // เคลียร์ยุค: ได้ stamina (เกินหลอดได้) + ดาว, เหรียญที่เหลือแลกเป็นดาว
+        // แล้วรีเซ็ต: อัปเกรดกลับ Lv.1 ทหารเริ่มใหม่ 1 ตัว (บวกค่ายฝึก)
+        const converted = Math.floor(this.save.coins / COINS_PER_STAR);
+        this.save.stars += ERA_CLEAR_STARS + converted;
+        this.save.stamina.value += ERA_CLEAR_STAMINA;
+        this.save.coins = ERA_START_COINS + this.save.meta.funds * 100;
+        this.save.upgrades = { troop: 0, capacity: 0, power: 0, economy: 0 };
+        eraClear = {
+          from: ERAS[L.era],
+          to: ERAS[eraIndexForLevel(this.save.level)],
+          timeline: timelineForLevel(this.save.level),
+          newTimeline: timelineForLevel(this.save.level) > L.timeline,
+          stamina: ERA_CLEAR_STAMINA,
+          stars: ERA_CLEAR_STARS,
+          converted,
+          startCoins: this.save.coins,
+        };
       }
     } else {
       reward = loseReward(this.collected, up.economy);
+      this.save.coins += reward;
       this.save.failStreak++;
     }
-    this.save.coins += reward;
-    this.pendingReward = reward;
+    this.pendingReward = eraClear ? 0 : reward;
     refreshStamina(this.save.stamina, Date.now());
     writeSave(this.save);
-    const newEra = eraIndexForLevel(this.save.level);
-    const evolved = win && !newCycle && newEra > L.era ? ERAS[newEra] : null;
-    if (evolved || newCycle) sfx.evolve();
+    if (eraClear) sfx.evolve();
     this.state = 'result';
     this.ui.hideHud();
     this.ui.showResult({
       win,
       level: L.level,
       reward,
+      stars,
       collected: this.collected,
       survivors: this.squad.count,
-      evolved,
-      newCycle: newCycle ? this.save.cycle : 0,
+      eraClear,
       castle: this.reachedCastle,
-      wheel: win && Math.random() < WHEEL_CHANCE,
+      // วงล้อโผล่แบบสุ่ม (ไม่ใช้ตอนจบยุค เพราะเหรียญถูกแลกเป็นดาวแล้ว)
+      wheel: win && !eraClear && Math.random() < WHEEL_CHANCE,
       income: incomeMult(up.economy),
       save: this.save,
     });
+  }
+
+  /** ข้อมูลไทม์ไลน์ยุค (ใช้ในหน้าไทม์ไลน์) */
+  timelineData(justCleared: boolean) {
+    const lv = this.save.level;
+    const tl = timelineForLevel(lv);
+    const cur = eraIndexForLevel(lv);
+    return {
+      timeline: tl,
+      current: cur,
+      justCleared,
+      eras: ERAS.map((e, i) => ({ era: e, state: (i < cur ? 'clear' : i === cur ? 'current' : i === cur + 1 ? 'next' : 'locked') as EraState })),
+    };
   }
 
   // ---------- การแสดงผล ----------
@@ -915,17 +1039,11 @@ export class Game {
   }
 
   private renderUnits(): void {
-    const sw = this.swarm;
-    const ew = this.eliteSwarm;
-    if (!sw || !ew) return;
+    if (!this.swarms.length) return;
     const t = sharedTime.value;
     const celebrate = this.state === 'won' || (this.state === 'result' && this.squad.count > 0);
-    if (this.state === 'menu') {
-      sw.run.value = 0;
-      ew.run.value = 0;
-    }
-    sw.begin();
-    ew.begin();
+    if (this.state === 'menu') for (const sw of this.swarms) sw.run.value = 0;
+    for (const sw of this.swarms) sw.begin();
     const sx = this.squad.x;
     const sz = this.squad.z;
     for (let i = 0; i < this.squad.troops.length; i++) {
@@ -935,10 +1053,9 @@ export class Game {
       let y = 0;
       if (celebrate) y = Math.max(0, Math.sin(t * 9 + i * 0.9)) * 0.45;
       else if (this.speed > 0.5) y = Math.abs(Math.sin(t * 13 + i)) * 0.05;
-      (tr.elite ? ew : sw).push(x, y, z, 0, tr.s * (tr.elite ? 1.12 : 1));
+      this.swarms[Math.min(MAX_TIER, tr.tier) - 1].push(x, y, z, 0, tr.s * (1 + (tr.tier - 1) * 0.05));
     }
-    sw.end();
-    ew.end();
+    for (const sw of this.swarms) sw.end();
     this.shadow.visible = this.squad.count > 0;
     this.shadow.position.set(sx, 0.02, sz);
     this.shadow.scale.set(this.squad.radiusX() * 1.2, this.squad.radiusZ() * 1.1, 1);
@@ -1032,6 +1149,16 @@ export class Game {
     }
 
     const sz = this.squad.z;
+    for (const p of this.pads) {
+      const show = !p.collected && p.z < sz + 1 && p.z > sz - 45 && this.state !== 'menu';
+      if (!show) {
+        if (p.label) p.label.style.display = 'none';
+        continue;
+      }
+      p.label ??= this.ui.makeLabel('tier');
+      const q = this.project(p.x, 3.0, p.z);
+      this.ui.setLabelText(p.label, `ทหาร Lv.${p.tier}`, q.x, q.y, q.vis);
+    }
     for (const t of this.targets) {
       const showable = t.kind !== 'stat' && t.alive && t.z < sz + 1 && t.z > sz - 45 && this.state !== 'menu';
       if (!showable) {
