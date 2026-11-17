@@ -43,6 +43,15 @@ export const SLOTS = {
   stat_rate: { emoji: '🔥', label: 'อัตรายิง', size: ICON, where: 'HUD ค่าพลังระหว่างเล่น' },
   stat_range: { emoji: '🎯', label: 'ระยะยิง', size: ICON, where: 'HUD ค่าพลังระหว่างเล่น' },
   stat_power: { emoji: '💥', label: 'พลังยิง', size: ICON, where: 'HUD ค่าพลังระหว่างเล่น' },
+  trophy: { emoji: '🏆', label: 'ถ้วยรางวัล', size: ICON, where: 'รางวัลจบด่าน, หน้าทีม (อัปเกรดฮีโร่)' },
+  team: { emoji: '🦸', label: 'ปุ่มฮีโร่', size: ICON, where: 'เมนู (ปุ่มหน้าทีม)' },
+  // ----- ฮีโร่ -----
+  hero_0: { emoji: '🧪', label: 'ฮีโร่: นักปรุงยาเพี้ยน', size: '256×256', where: 'หน้าทีม' },
+  hero_1: { emoji: '🥊', label: 'ฮีโร่: นักชกเพลิง', size: '256×256', where: 'หน้าทีม' },
+  hero_2: { emoji: '🪓', label: 'ฮีโร่: คนตัดไม้ยักษ์', size: '256×256', where: 'หน้าทีม' },
+  hero_3: { emoji: '🌪️', label: 'ฮีโร่: นักพรตสายลม', size: '256×256', where: 'หน้าทีม' },
+  hero_4: { emoji: '🛸', label: 'ฮีโร่: นักบินโดรน', size: '256×256', where: 'หน้าทีม' },
+  hero_5: { emoji: '💰', label: 'ฮีโร่: นักล่าสมบัติ', size: '256×256', where: 'หน้าทีม' },
   // ----- อัปเกรดประจำยุค -----
   up_troop: { emoji: '🧍', label: 'อัปเกรด: เพิ่มทหาร', size: '160×160', where: 'การ์ดอัปเกรดในเมนู' },
   up_capacity: { emoji: '🏕️', label: 'อัปเกรด: ความจุ', size: '160×160', where: 'การ์ดอัปเกรดในเมนู' },

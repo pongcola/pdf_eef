@@ -28,8 +28,8 @@ import {
 } from '../config.ts';
 import {
   capacity,
+  capacityProgress,
   capsuleStartCount,
-  gaugeSpeed,
   incomeMult,
   loseReward,
   META,
@@ -66,6 +66,9 @@ import {
 import { sharedTime, UnitSwarm } from '../render/units.ts';
 import { World } from '../render/world.ts';
 import type { UI } from '../ui/ui.ts';
+import { HEROES, heroAtk, heroMult, heroUpgradeCost, type HeroDef } from '../heroes.ts';
+import { HeroModel, SKILL_FX } from '../render/heroes.ts';
+import type { Object3D } from 'three';
 import { generateLevel, STAT_LABEL, type LevelData } from './level.ts';
 import { Squad } from './squad.ts';
 
@@ -112,6 +115,36 @@ interface EnemyGroup {
 }
 
 const BOSS_STOP = 10.5;
+
+/** เป้าของสกิลฮีโร่ */
+type HeroTarget = { kind: 't'; t: Target } | { kind: 'e'; u: EnemyUnit } | { kind: 'b' };
+
+/** วัตถุสกิลที่กำลังบิน */
+interface HeroFx {
+  obj: Object3D;
+  x0: number;
+  y0: number;
+  z0: number;
+  x1: number;
+  y1: number;
+  z1: number;
+  t: number;
+  dur: number;
+  arc: number;
+  spin: number;
+  onHit: () => void;
+  /** ลมพัด: ตรวจโดนเป้าระหว่างทาง */
+  sweep?: { dmg: number; hit: Set<unknown> };
+}
+
+/** ดาเมจต่อเนื่อง (กรด/เลือดไหล) */
+interface Dot {
+  target: HeroTarget;
+  dmg: number;
+  left: number;
+  t: number;
+  color: number;
+}
 const ENEMY_SHOT_GEO = new BoxGeometry(0.12, 0.12, 0.7);
 const ENEMY_SHOT_MAT = new MeshLambertMaterial({ color: 0xc0303a });
 
@@ -157,12 +190,21 @@ export class Game {
   private collected = 0;
   /** เกจด้านซ้าย: เต็มแล้วได้ทหารเพิ่ม */
   private gauge = 0;
+  /** ตัวคูณเงินระหว่างทาง (อัปเกรดรายได้) */
+  private income = 1;
   private gaugeGain = 1;
   /** ดาเมจที่ต้องยิงใส่หอหินเพื่อให้เกจเต็ม 1 ครั้ง */
   private gaugeNeed = 1;
   /** จำนวนแคปซูลบนแท่น (เกจเต็มแล้ว +1, สูงสุด 5) */
   private capCount = 2;
   private enemyShots: EnemyShot[] = [];
+  private hero: HeroModel | null = null;
+  private heroDef: HeroDef = HEROES[0];
+  private heroLvl = 1;
+  private heroCool = 1;
+  private heroFx: HeroFx[] = [];
+  private dots: Dot[] = [];
+  private heroSide = 1;
 
   private t = 0;
   private dist = 0;
@@ -286,6 +328,9 @@ export class Game {
     this.enemies = [];
     this.particles.clear();
     this.projectiles?.clear();
+    for (const f of this.heroFx) f.obj.removeFromParent();
+    this.heroFx = [];
+    this.dots = [];
   }
 
   buildLevel(): void {
@@ -388,13 +433,17 @@ export class Game {
       this.swarmEra = era;
     }
 
+    this.setupHero();
     this.squad.reset(start);
     this.squad.z = 0;
     this.rateMul = this.rangeMul = this.powMul = 1;
     this.collected = 0;
     this.starsGot = 0;
     this.gauge = 0;
-    this.gaugeGain = gaugeSpeed(up.capacity);
+    this.gaugeGain = 1;
+    this.income = incomeMult(up.economy);
+    // เกจซ้ายเริ่มต้นตามแถบความคืบหน้าของอัปเกรดความจุ + ค่ายฝึก
+    this.gauge = Math.min(0.95, capacityProgress(up.capacity) + meta.logistics * 0.1);
     this.capCount = capsuleStartCount(up.capacity);
     // เกจเต็มเมื่อยิงหอหินได้ราว 1.6 ก้อน
     const blockHp = this.blocks.map((b) => b.maxHp);
@@ -438,7 +487,7 @@ export class Game {
       upgrades: UPGRADES.map((u) => {
         const lvl = this.save.upgrades[u.id];
         const cost = upgradeCost(u, lvl, ord);
-        return { id: u.id, name: u.nameTh, icon: u.icon, color: u.color, lvl, desc: u.describe(lvl, this.save.meta), cost, affordable: this.save.coins >= cost };
+        return { id: u.id, name: u.nameTh, icon: u.icon, color: u.color, note: u.note, lvl, desc: u.describe(lvl, this.save.meta), cost, affordable: this.save.coins >= cost };
       }),
     });
     this.ui.renderCamp(this.campData());
@@ -618,6 +667,7 @@ export class Game {
     this.active = this.targets.filter((t) => t.alive && t.z < this.squad.z + 1 && t.z > this.squad.z - 60);
     this.fire(dt);
     this.projectiles!.update(dt, PROJECTILE_SPEED, (x, z0, z1, dmg) => this.projectileHit(x, z0, z1, dmg));
+    this.updateHeroSkill(dt);
 
     if (this.state === 'run') {
       this.troopCollisions();
@@ -680,75 +730,91 @@ export class Game {
       for (const u of g.units) {
         if (!u.alive || u.z - 0.35 > z0 || u.z + 0.35 < z1 || Math.abs(u.x - x) > 0.4) continue;
         if (best && best.z > u.z) continue;
-        u.hp -= dmg;
-        if (u.hp <= 0) {
-          u.alive = false;
-          this.particles.burst(u.x, 0.6, u.z, ENEMY_COLOR, 6, 4);
-          sfx.pop();
-          if (Math.random() < 0.35) this.spawnCash(u.x, u.z, Math.round(2 + this.level.hard * 0.6));
-        }
+        this.damageEnemy(u, dmg);
         return true;
       }
     }
     if (best) {
-      if (best instanceof StatGate) {
-        // ค่าเพิ่มตามระดับทหารที่ยิง (ไม่ขึ้นกับพลังโจมตี)
-        const gain = (3 * dmg) / Math.max(0.0001, this.baseDmg * this.powMul);
-        best.shoot(dmg, gain);
-        if (best.justBroke) {
-          best.justBroke = false;
-          this.particles.burst(best.x, 1.1, best.z + 0.4, 0x9a6440, 18, 6, 0.22, 0.9);
-          sfx.breakBlock();
-        } else sfx.tick();
-        return true;
-      }
-      if (best instanceof PadBody || best instanceof CapsuleTarget) {
-        const pad = best.pad;
-        if (pad.addProgress(dmg)) {
-          const q = this.project(pad.x, 3.2, pad.z);
-          this.ui.floatText(`Level ${pad.level}!`, q.x, q.y, true);
-          this.particles.burst(pad.x, 1.5, pad.z, 0x7fdcff, 16, 5, 0.12, 0.7);
-          sfx.gateGood();
-        }
-        if (best instanceof PadBody) {
-          best.hit(dmg);
-          return true;
-        }
-      }
-      // เกจซ้ายขึ้นเฉพาะตอนยิงหอหิน
-      if (best instanceof BlockTarget) this.addGauge(Math.min(dmg, best.hp));
-      const dead = best.hit(dmg);
-      if (best instanceof BlockTarget && best.justCracked) {
-        best.justCracked = false;
-        this.particles.burst(best.x, 1.2, best.z, 0x9a958c, 16, 6, 0.2, 0.9);
-        sfx.hit();
-      }
-      if (best instanceof CageTarget) {
-        // ปล่อยเงินทุกๆ 25% ของเลือด
-        while (best.drops < 4 && best.hp <= best.maxHp * (1 - (best.drops + 1) * 0.25)) {
-          best.drops++;
-          this.spawnCash(best.x + (Math.random() - 0.5) * 1.6, best.z + 1.6 + Math.random(), best.cashValue);
-        }
-      }
-      if (dead) this.onDestroyed(best);
+      this.damageTarget(best, dmg);
       return true;
     }
     // บอส
     if (this.boss && this.state === 'boss' && this.bossHp > 0) {
       const bz = this.boss.group.position.z;
       if (z1 <= bz + this.boss.radius && Math.abs(x) < this.boss.radius * 1.2) {
-        this.bossHp = Math.max(0, this.bossHp - dmg);
-        this.bossPending += dmg;
-        this.hurtFx += 1;
-        if (this.hurtFx > 6) {
-          this.hurtFx = 0;
-          this.boss.hurt();
-          sfx.hit();
-        }
+        this.damageBoss(dmg);
         return true;
       }
     }
     return false;
+  }
+
+  private damageEnemy(u: EnemyUnit, dmg: number): void {
+    if (!u.alive) return;
+    u.hp -= dmg;
+    if (u.hp <= 0) {
+      u.alive = false;
+      this.particles.burst(u.x, 0.6, u.z, ENEMY_COLOR, 6, 4);
+      sfx.pop();
+      if (Math.random() < 0.35) this.spawnCash(u.x, u.z, Math.round(2 + this.level.hard * 0.6));
+    }
+  }
+
+  private damageBoss(dmg: number): void {
+    if (!this.boss || this.bossHp <= 0) return;
+    this.bossHp = Math.max(0, this.bossHp - dmg);
+    this.bossPending += dmg;
+    this.hurtFx += 1;
+    if (this.hurtFx > 6) {
+      this.hurtFx = 0;
+      this.boss.hurt();
+      sfx.hit();
+    }
+  }
+
+  /** ดาเมจใส่เป้า (ใช้ทั้งกระสุนทหารและสกิลฮีโร่) */
+  private damageTarget(best: Target, dmg: number): void {
+    if (!best.alive) return;
+    if (best instanceof StatGate) {
+      // ค่าเพิ่มตามระดับทหารที่ยิง (ไม่ขึ้นกับพลังโจมตี)
+      const gain = (3 * dmg) / Math.max(0.0001, this.baseDmg * this.powMul);
+      best.shoot(dmg, gain);
+      if (best.justBroke) {
+        best.justBroke = false;
+        this.particles.burst(best.x, 1.1, best.z + 0.4, 0x9a6440, 18, 6, 0.22, 0.9);
+        sfx.breakBlock();
+      } else sfx.tick();
+      return;
+    }
+    if (best instanceof PadBody || best instanceof CapsuleTarget) {
+      const pad = best.pad;
+      if (pad.addProgress(dmg)) {
+        const q = this.project(pad.x, 3.2, pad.z);
+        this.ui.floatText(`Level ${pad.level}!`, q.x, q.y, true);
+        this.particles.burst(pad.x, 1.5, pad.z, 0x7fdcff, 16, 5, 0.12, 0.7);
+        sfx.gateGood();
+      }
+      if (best instanceof PadBody) {
+        best.hit(dmg);
+        return;
+      }
+    }
+    // เกจซ้ายขึ้นเฉพาะตอนยิงหอหิน
+    if (best instanceof BlockTarget) this.addGauge(Math.min(dmg, best.hp));
+    const dead = best.hit(dmg);
+    if (best instanceof BlockTarget && best.justCracked) {
+      best.justCracked = false;
+      this.particles.burst(best.x, 1.2, best.z, 0x9a958c, 16, 6, 0.2, 0.9);
+      sfx.hit();
+    }
+    if (best instanceof CageTarget) {
+      // ปล่อยเงินทุกๆ 25% ของเลือด
+      while (best.drops < 4 && best.hp <= best.maxHp * (1 - (best.drops + 1) * 0.25)) {
+        best.drops++;
+        this.spawnCash(best.x + (Math.random() - 0.5) * 1.6, best.z + 1.6 + Math.random(), best.cashValue);
+      }
+    }
+    if (dead) this.onDestroyed(best);
   }
 
   private onDestroyed(t: Target): void {
@@ -758,8 +824,8 @@ export class Game {
     if (t instanceof BlockTarget) {
       t.group.visible = false;
       this.particles.burst(t.x, 1, t.z, 0x9a8f80, 18, 6, 0.2, 0.9);
-      this.collected += t.coins;
-      this.ui.coinPop(`+${t.coins}`, p.x, p.y);
+      const v = this.earn(t.coins);
+      this.ui.coinPop(`+${v}`, p.x, p.y);
       sfx.breakBlock();
       buzz('light');
     } else if (t instanceof CageTarget) {
@@ -773,8 +839,8 @@ export class Game {
       t.group.visible = false;
       this.particles.burst(t.x, 1.4, t.z, t.color, 22, 7, 0.2, 1.0);
       this.particles.burst(t.x, 2.6, t.z, 0x3ea85a, 10, 6, 0.18, 0.9);
-      this.collected += t.coins;
-      this.ui.coinPop(`+${t.coins}`, p.x, p.y);
+      const v = this.earn(t.coins);
+      this.ui.coinPop(`+${v}`, p.x, p.y);
       if (t.star) {
         this.starsGot++;
         const q = this.project(t.x, 3.5, t.z);
@@ -825,6 +891,13 @@ export class Game {
     if (this.capCount >= 5) this.gauge = 1;
   }
 
+  /** เก็บเงินระหว่างทาง (คูณอัปเกรดรายได้) */
+  private earn(v: number): number {
+    const got = Math.max(1, Math.round(v * this.income));
+    this.collected += got;
+    return got;
+  }
+
   private spawnCash(x: number, z: number, value: number): void {
     const c = new CashStack(this.clampX(x), z, value);
     this.scene.add(c.group);
@@ -842,9 +915,9 @@ export class Game {
       if (Math.abs(this.squad.x - c.x) < rx + 0.8) {
         c.taken = true;
         c.group.visible = false;
-        this.collected += c.value;
+        const v = this.earn(c.value);
         const p = this.project(c.x, 1.2, c.z);
-        this.ui.coinPop(`+${c.value}`, p.x, p.y);
+        this.ui.coinPop(`+${v}`, p.x, p.y);
         this.particles.burst(c.x, 0.6, c.z, 0x3ea85a, 10, 4, 0.14, 0.6);
         sfx.coin();
       }
@@ -1029,6 +1102,272 @@ export class Game {
     }
   }
 
+  // ---------- ฮีโร่ ----------
+
+  private setupHero(): void {
+    const h = this.save.heroes;
+    const ord = eraOrdinal(this.save.level);
+    let id = h.equipped;
+    if (!HEROES[id] || HEROES[id].unlockOrd > ord) id = 0;
+    this.heroDef = HEROES[id];
+    this.heroLvl = h.levels[id] ?? 1;
+    this.heroCool = 1.2;
+    if (!this.hero || (this.hero as unknown as { id?: number }).id !== id) {
+      this.hero?.dispose();
+      this.hero = new HeroModel(id);
+      (this.hero as unknown as { id?: number }).id = id;
+      this.scene.add(this.hero.group);
+    }
+  }
+
+  /** ดาเมจพื้นฐานของสกิล = ดาเมจทหาร 1 นัด × ตัวคูณ Level */
+  private heroBase(): number {
+    return this.baseDmg * this.powMul * heroMult(this.heroLvl);
+  }
+
+  private heroCandidates(range: number): HeroTarget[] {
+    const sz = this.squad.z;
+    const out: HeroTarget[] = [];
+    for (const t of this.active) {
+      if (!t.alive || t instanceof StatGate || t instanceof PadBody) continue;
+      if (t.z > sz - 1 || t.z < sz - range) continue;
+      out.push({ kind: 't', t });
+    }
+    for (const g of this.enemies) {
+      for (const u of g.units) if (u.alive && u.z < sz - 1 && u.z > sz - range) out.push({ kind: 'e', u });
+    }
+    if (this.boss && this.state === 'boss' && this.bossHp > 0) out.push({ kind: 'b' });
+    return out;
+  }
+
+  private tPos(h: HeroTarget): { x: number; z: number; y: number } {
+    if (h.kind === 't') return { x: h.t.x, z: h.t.z, y: h.t.kind === 'crystal' ? 1.8 : 1.0 };
+    if (h.kind === 'e') return { x: h.u.x, z: h.u.z, y: 0.8 };
+    const b = this.boss!;
+    return { x: 0, z: b.group.position.z + b.radius * 0.6, y: 2.5 };
+  }
+
+  private tAlive(h: HeroTarget): boolean {
+    if (h.kind === 't') return h.t.alive;
+    if (h.kind === 'e') return h.u.alive;
+    return this.bossHp > 0;
+  }
+
+  private tHit(h: HeroTarget, dmg: number): void {
+    if (!this.tAlive(h)) return;
+    if (h.kind === 't') {
+      h.t.pending += 0; // ตัวเลขดาเมจแสดงผ่าน pending ใน hit()
+      this.damageTarget(h.t, dmg);
+    } else if (h.kind === 'e') this.damageEnemy(h.u, dmg);
+    else this.damageBoss(dmg);
+  }
+
+  /** ดาเมจวงกว้างรอบจุด (x, z) */
+  private aoe(x: number, z: number, r: number, dmg: number, color: number): void {
+    this.particles.burst(x, 0.8, z, color, 22, 7, 0.18, 0.8);
+    for (const h of this.heroCandidates(60)) {
+      const p = this.tPos(h);
+      if (h.kind === 'b' || Math.hypot(p.x - x, p.z - z) < r) this.tHit(h, dmg);
+    }
+  }
+
+  private launch(kind: keyof typeof SKILL_FX, to: { x: number; y: number; z: number }, dur: number, arc: number, onHit: () => void, from?: { x: number; y: number; z: number }): HeroFx {
+    const obj = SKILL_FX[kind]();
+    const hp = this.hero!.group.position;
+    const f: HeroFx = {
+      obj,
+      x0: from?.x ?? hp.x,
+      y0: from?.y ?? this.hero!.launchY,
+      z0: from?.z ?? hp.z - 0.4,
+      x1: to.x,
+      y1: to.y,
+      z1: to.z,
+      t: 0,
+      dur,
+      arc,
+      spin: kind === 'axe' ? 18 : kind === 'flask' ? 10 : 0,
+      onHit,
+    };
+    obj.position.set(f.x0, f.y0, f.z0);
+    this.scene.add(obj);
+    this.heroFx.push(f);
+    return f;
+  }
+
+  private updateHeroSkill(dt: number): void {
+    // วัตถุสกิลที่กำลังบิน
+    for (let i = this.heroFx.length - 1; i >= 0; i--) {
+      const f = this.heroFx[i];
+      f.t += dt;
+      const k = Math.min(1, f.t / f.dur);
+      f.obj.position.set(f.x0 + (f.x1 - f.x0) * k, f.y0 + (f.y1 - f.y0) * k + Math.sin(k * Math.PI) * f.arc, f.z0 + (f.z1 - f.z0) * k);
+      if (f.spin) f.obj.rotation.x -= dt * f.spin;
+      if (f.sweep) {
+        const p = f.obj.position;
+        for (const h of this.heroCandidates(60)) {
+          const key = h.kind === 't' ? h.t : h.kind === 'e' ? h.u : 'boss';
+          if (f.sweep.hit.has(key)) continue;
+          const q = this.tPos(h);
+          if (h.kind === 'b' ? p.z < q.z + 1 : Math.hypot(q.x - p.x, q.z - p.z) < 1.1) {
+            f.sweep.hit.add(key);
+            this.tHit(h, f.sweep.dmg);
+          }
+        }
+      }
+      if (k >= 1) {
+        f.obj.removeFromParent();
+        this.heroFx.splice(i, 1);
+        f.onHit();
+      }
+    }
+    // ดาเมจต่อเนื่อง
+    for (let i = this.dots.length - 1; i >= 0; i--) {
+      const d = this.dots[i];
+      d.t += dt;
+      if (d.t < 0.5) continue;
+      d.t = 0;
+      d.left--;
+      if (this.tAlive(d.target)) {
+        const p = this.tPos(d.target);
+        this.particles.burst(p.x, p.y, p.z, d.color, 4, 2, 0.1, 0.5);
+        this.tHit(d.target, d.dmg);
+      }
+      if (d.left <= 0 || !this.tAlive(d.target)) this.dots.splice(i, 1);
+    }
+
+    if (!this.hero || !this.squad.count) return;
+    if (this.state !== 'run' && this.state !== 'bonus' && this.state !== 'boss') return;
+    this.heroCool -= dt;
+    if (this.heroCool > 0) return;
+    const cands = this.heroCandidates(18);
+    if (!cands.length) {
+      this.heroCool = 0.2;
+      return;
+    }
+    this.heroCool = this.heroDef.cooldown;
+    const base = this.heroBase();
+    // เป้าหลัก: อันที่ใกล้ที่สุด (มิสไซล์เลือกอันที่เลือดเยอะสุด)
+    const hpOf = (h: HeroTarget) => (h.kind === 't' ? h.t.hp : h.kind === 'e' ? h.u.hp : this.bossHp);
+    const near = cands.reduce((a, b) => (this.tPos(b).z > this.tPos(a).z ? b : a));
+    const main = this.heroDef.skill === 'missile' ? cands.reduce((a, b) => (hpOf(b) > hpOf(a) ? b : a)) : near;
+    const tp = this.tPos(main);
+    const dist = Math.max(2, this.hero.group.position.z - tp.z);
+    switch (this.heroDef.skill) {
+      case 'flask':
+        this.launch('flask', tp, dist / 16, 2.2, () => {
+          this.aoe(tp.x, tp.z, 2.4, base * 6, 0x7cf26b);
+          for (const h of this.heroCandidates(60)) {
+            const p = this.tPos(h);
+            if (h.kind === 'b' || Math.hypot(p.x - tp.x, p.z - tp.z) < 2.4) this.dots.push({ target: h, dmg: base * 1.5, left: 3, t: 0, color: 0x7cf26b });
+          }
+          sfx.breakBlock();
+        });
+        break;
+      case 'punch':
+        this.launch('punch', tp, dist / 24, 0.3, () => {
+          const crit = Math.random() < 0.3;
+          this.tHit(main, base * 7 * (crit ? 3 : 1));
+          this.particles.burst(tp.x, tp.y, tp.z, 0xff7a1a, crit ? 22 : 10, 6, 0.16, 0.6);
+          if (crit) {
+            const q = this.project(tp.x, tp.y + 1.5, tp.z);
+            this.ui.floatText('CRIT!', q.x, q.y, false);
+          }
+          sfx.hit();
+        });
+        break;
+      case 'axe': {
+        // ขว้างทะลุ: โดนเป้า 3 อันแรกในแนวเดียวกัน แล้วเลือดไหล
+        const line = cands
+          .filter((h) => Math.abs(this.tPos(h).x - tp.x) < 1.3)
+          .sort((a, b) => this.tPos(b).z - this.tPos(a).z)
+          .slice(0, 3);
+        const end = line.length ? this.tPos(line[line.length - 1]) : tp;
+        const f = this.launch('axe', { x: end.x, y: 1.0, z: end.z - 1 }, Math.max(2, this.hero.group.position.z - end.z) / 18, 0.4, () => {});
+        f.sweep = { dmg: base * 5, hit: new Set() };
+        for (const h of line) this.dots.push({ target: h, dmg: base, left: 4, t: -0.3, color: 0xdc2626 });
+        sfx.shoot();
+        break;
+      }
+      case 'wind':
+        this.launch('wind', tp, dist / 20, 0.6, () => {
+          this.tHit(main, base * 4);
+          // กระแสลม 3 สาย พัดไปข้างหน้า
+          for (const a of [-0.35, 0, 0.35]) {
+            const f = this.launch('wind', { x: tp.x + Math.sin(a) * 14, y: 0.8, z: tp.z - Math.cos(a) * 14 }, 1.0, 0, () => {}, { x: tp.x, y: 0.8, z: tp.z });
+            f.sweep = { dmg: base * 2.5, hit: new Set([main.kind === 't' ? main.t : main.kind === 'e' ? main.u : 'boss']) };
+          }
+          sfx.gateGood();
+        });
+        break;
+      case 'missile':
+        this.launch('missile', { x: tp.x, y: 0.4, z: tp.z }, 0.7, 0, () => {
+          this.aoe(tp.x, tp.z, 2.8, base * 12, 0xff9a3d);
+          this.shake = Math.max(this.shake, 0.2);
+          sfx.stomp();
+        }, { x: tp.x + 1.5, y: 12, z: tp.z + 3 });
+        break;
+      case 'treasure': {
+        this.heroSide = -this.heroSide;
+        const hp = this.hero.group.position;
+        this.launch('treasure', tp, dist / 30, 0.1, () => {
+          this.tHit(main, base * 1.8);
+          const r = Math.random();
+          if (r < 0.04) {
+            this.starsGot++;
+            const q = this.project(tp.x, tp.y + 1.5, tp.z);
+            this.ui.starPop(q.x, q.y);
+          } else if (r < 0.24) {
+            this.spawnCash(tp.x + (Math.random() - 0.5), tp.z + 1.5, Math.round(2 + this.level.hard * 0.5));
+          }
+        }, { x: hp.x + this.heroSide * 0.45, y: 1.0, z: hp.z - 0.5 });
+        break;
+      }
+    }
+  }
+
+  /** ข้อมูลหน้าทีม (ฮีโร่) */
+  teamData() {
+    const ord = eraOrdinal(this.save.level);
+    const h = this.save.heroes;
+    return {
+      trophies: this.save.trophies,
+      equipped: h.equipped,
+      heroes: HEROES.map((d) => {
+        const lvl = h.levels[d.id] ?? 1;
+        const cost = heroUpgradeCost(lvl);
+        return { def: d, lvl, atk: heroAtk(lvl), cost, unlocked: d.unlockOrd <= ord, affordable: this.save.trophies >= cost };
+      }),
+    };
+  }
+
+  upgradeHero(id: number): void {
+    const d = HEROES[id];
+    if (!d || d.unlockOrd > eraOrdinal(this.save.level)) return;
+    const lvl = this.save.heroes.levels[id] ?? 1;
+    const cost = heroUpgradeCost(lvl);
+    if (this.save.trophies < cost) {
+      this.ui.toast('ถ้วยรางวัลไม่พอ');
+      return;
+    }
+    this.save.trophies -= cost;
+    this.save.heroes.levels[id] = lvl + 1;
+    writeSave(this.save);
+    sfx.coin();
+    buzz('light');
+    this.setupHero();
+    this.ui.renderTeam(this.teamData());
+  }
+
+  equipHero(id: number): void {
+    const d = HEROES[id];
+    if (!d || d.unlockOrd > eraOrdinal(this.save.level)) return;
+    this.save.heroes.equipped = id;
+    writeSave(this.save);
+    sfx.click();
+    this.setupHero();
+    this.ui.renderTeam(this.teamData());
+  }
+
   private blockedByCrystal(): boolean {
     const front = this.squad.z - this.squad.radiusZ() * 0.8;
     const rx = this.squad.radiusX();
@@ -1128,12 +1467,15 @@ export class Game {
     const up = this.save.upgrades;
     let reward: number;
     let stars = 0;
+    let trophies = 0;
     let eraClear: EraClear | null = null;
     if (win) {
-      reward = winReward(L.inEra, L.eraOrd, this.collected, L.eraBoss, up.economy);
+      reward = winReward(L.inEra, L.eraOrd, this.collected, L.eraBoss);
       stars = 1 + this.starsGot;
+      trophies = L.eraBoss ? 3 : 1;
       this.save.coins += reward;
       this.save.stars += stars;
+      this.save.trophies += trophies;
       this.save.level = L.level + 1;
       this.save.failStreak = 0;
       if (L.eraBoss) {
@@ -1144,6 +1486,8 @@ export class Game {
         this.save.stamina.value += ERA_CLEAR_STAMINA;
         this.save.coins = ERA_START_COINS + this.save.meta.funds * 100;
         this.save.upgrades = { troop: 0, capacity: 0, power: 0, economy: 0 };
+        // Level ฮีโร่รีเซ็ตเป็น 1 เมื่อขึ้นยุคใหม่
+        this.save.heroes.levels = this.save.heroes.levels.map(() => 1);
         eraClear = {
           from: ERAS[L.era],
           to: ERAS[eraIndexForLevel(this.save.level)],
@@ -1156,7 +1500,7 @@ export class Game {
         };
       }
     } else {
-      reward = loseReward(this.collected, up.economy);
+      reward = loseReward(this.collected);
       this.save.coins += reward;
       this.save.failStreak++;
     }
@@ -1171,6 +1515,7 @@ export class Game {
       level: L.level,
       reward,
       stars,
+      trophies,
       collected: this.collected,
       survivors: this.squad.count,
       eraClear,
@@ -1220,6 +1565,12 @@ export class Game {
       this.swarms[Math.min(MAX_TIER, tr.tier) - 1].push(x, y, z, 0, tr.s * (1 + (tr.tier - 1) * 0.05));
     }
     for (const sw of this.swarms) sw.end();
+    if (this.hero) {
+      this.hero.group.visible = this.squad.count > 0 || this.state === 'menu';
+      this.hero.group.position.set(this.clampX(sx + 0.2), 0, sz + this.squad.radiusZ() + 0.7);
+      const moving = this.speed > 0.5 && this.state !== 'paused';
+      this.hero.update(t, moving || (this.state === 'won' && this.squad.count > 0));
+    }
     this.shadow.visible = this.squad.count > 0;
     this.shadow.position.set(sx, 0.02, sz);
     this.shadow.scale.set(this.squad.radiusX() * 1.2, this.squad.radiusZ() * 1.1, 1);

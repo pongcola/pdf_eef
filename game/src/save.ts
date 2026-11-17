@@ -16,6 +16,10 @@ export interface SaveData {
   meta: MetaLevels;
   stamina: StaminaState;
   failStreak: number;
+  /** ถ้วยรางวัล (ใช้อัปเกรดฮีโร่) */
+  trophies: number;
+  /** ฮีโร่: ตัวที่ใช้อยู่ และ Level ของแต่ละตัว (รีเซ็ตทุกยุค) */
+  heroes: { equipped: number; levels: number[] };
   settings: { sound: boolean; music: boolean; vibration: boolean };
 }
 
@@ -31,6 +35,8 @@ export function defaultSave(now: number): SaveData {
     meta: { funds: 0, aim: 0, veteran: 0, logistics: 0 },
     stamina: { value: STAMINA_MAX, lastTick: now },
     failStreak: 0,
+    trophies: 0,
+    heroes: { equipped: 0, levels: [1, 1, 1, 1, 1, 1] },
     settings: { sound: true, music: true, vibration: true },
   };
 }
@@ -58,6 +64,10 @@ export function loadSave(now: number): SaveData {
       version: 3,
       upgrades: { ...base.upgrades, ...(data.upgrades ?? {}) },
       meta: { ...base.meta, ...(data.meta ?? {}) },
+      heroes: {
+        equipped: data.heroes?.equipped ?? 0,
+        levels: base.heroes.levels.map((v, i) => data.heroes?.levels?.[i] ?? v),
+      },
       stamina: keep.stamina,
       settings: keep.settings,
     };

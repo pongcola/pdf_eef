@@ -32,6 +32,9 @@ async function boot(): Promise<void> {
     wheel: (m) => game?.claimWheel(m) ?? 0,
     meta: (id) => game?.buyMeta(id),
     timeline: (j) => game!.timelineData(j),
+    team: () => game!.teamData(),
+    heroUpgrade: (id) => game?.upgradeHero(id),
+    heroEquip: (id) => game?.equipHero(id),
   });
   game = new Game(canvas, ui);
   ui.renderSettings(game.save.settings);

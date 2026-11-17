@@ -2,6 +2,7 @@ import { LEVELS_PER_ERA, STAMINA_MAX, STAMINA_RUN_COST } from '../config.ts';
 import type { MetaId, UpgradeId } from '../economy.ts';
 import type { EraDef } from '../eras.ts';
 import { applySkins, artUrl, ico } from './art.ts';
+import { unlockText, type HeroDef } from '../heroes.ts';
 import type { SaveData } from '../save.ts';
 import { formatMs, msToNextStamina, refreshStamina } from '../stamina.ts';
 import { sfx, unlockAudio } from '../audio.ts';
@@ -19,6 +20,15 @@ export interface UIHandlers {
   wheel(mult: number): number;
   meta(id: MetaId): void;
   timeline(justCleared: boolean): TimelineData;
+  team(): TeamData;
+  heroUpgrade(id: number): void;
+  heroEquip(id: number): void;
+}
+
+export interface TeamData {
+  trophies: number;
+  equipped: number;
+  heroes: { def: HeroDef; lvl: number; atk: number; cost: number; unlocked: boolean; affordable: boolean }[];
 }
 
 export interface TimelineData {
@@ -54,6 +64,7 @@ export interface MenuData {
     name: string;
     icon: string;
     color: string;
+    note: string;
     lvl: number;
     desc: string;
     cost: number;
@@ -66,6 +77,7 @@ export interface ResultData {
   level: number;
   reward: number;
   stars: number;
+  trophies: number;
   collected: number;
   survivors: number;
   eraClear: EraClearInfo | null;
@@ -122,6 +134,9 @@ export class UI {
   private settingsModal: HTMLElement;
   private campModal: HTMLElement;
   private timelineModal: HTMLElement;
+  private teamModal: HTMLElement;
+  private teamSel = -1;
+  private teamTab = 'hero';
   private toastEl: HTMLElement;
   private crowdLabel: HTMLElement;
   private dmgPool: HTMLElement[] = [];
@@ -167,6 +182,7 @@ export class UI {
         <div class="side-btns">
           <button class="side-btn" data-act="timeline">${ico('timeline')}<span>ไทม์ไลน์</span></button>
           <button class="side-btn" data-act="camp">${ico('camp')}<span>ค่ายฝึก</span></button>
+          <button class="side-btn" data-act="team">${ico('team')}<span>ฮีโร่</span></button>
         </div>
       </div>
       <div class="bottom">
@@ -229,6 +245,8 @@ export class UI {
     root.append(this.campModal);
     this.timelineModal = el('div', 'modal hidden');
     root.append(this.timelineModal);
+    this.teamModal = el('div', 'modal hidden');
+    root.append(this.teamModal);
     this.toastEl = el('div', 'toast hidden');
     root.append(this.toastEl);
 
@@ -246,7 +264,13 @@ export class UI {
   }
 
   private onClick(e: Event): void {
-    const t = (e.target as HTMLElement).closest<HTMLElement>('[data-act],[data-upg],[data-meta]');
+    const info = (e.target as HTMLElement).closest<HTMLElement>('[data-info]');
+    if (info) {
+      const card = info.closest<HTMLElement>('[data-upg]');
+      if (card?.dataset.note) this.showNote(card, card.dataset.note);
+      return;
+    }
+    const t = (e.target as HTMLElement).closest<HTMLElement>('[data-act],[data-upg],[data-meta],[data-hero],[data-tab]');
     if (!t || (t as HTMLButtonElement).disabled) return;
     const upg = t.dataset.upg as UpgradeId | undefined;
     if (upg) {
@@ -256,6 +280,18 @@ export class UI {
     const meta = t.dataset.meta as MetaId | undefined;
     if (meta) {
       this.h.meta(meta);
+      return;
+    }
+    if (t.dataset.hero !== undefined) {
+      this.teamSel = Number(t.dataset.hero);
+      sfx.click();
+      this.renderTeam(this.h.team());
+      return;
+    }
+    if (t.dataset.tab) {
+      this.teamTab = t.dataset.tab;
+      sfx.click();
+      this.renderTeam(this.h.team());
       return;
     }
     const act = t.dataset.act;
@@ -284,6 +320,21 @@ export class UI {
         break;
       case 'close-camp':
         this.campModal.classList.add('hidden');
+        break;
+      case 'team':
+        this.teamSel = -1;
+        this.teamTab = 'hero';
+        this.renderTeam(this.h.team());
+        this.teamModal.classList.remove('hidden');
+        break;
+      case 'close-team':
+        this.teamModal.classList.add('hidden');
+        break;
+      case 'hero-up':
+        this.h.heroUpgrade(Number(t.dataset.id));
+        break;
+      case 'hero-eq':
+        this.h.heroEquip(Number(t.dataset.id));
         break;
       case 'pause':
         this.h.pause();
@@ -326,8 +377,19 @@ export class UI {
     }
   }
 
+  /** กล่อง NOTE เหนือการ์ดอัปเกรด */
+  private showNote(card: HTMLElement, text: string): void {
+    this.menu.querySelector('.note-pop')?.remove();
+    const pop = el('div', 'note-pop', `<b>NOTE</b><div>${text}</div>`);
+    const r = card.getBoundingClientRect();
+    pop.style.left = `${Math.max(8, Math.min(window.innerWidth - 228, r.left + r.width / 2 - 110))}px`;
+    pop.style.bottom = `${window.innerHeight - r.top + 10}px`;
+    this.menu.append(pop);
+    window.setTimeout(() => pop.remove(), 3500);
+  }
+
   closeOverlays(): boolean {
-    for (const m of [this.settingsModal, this.campModal, this.timelineModal]) {
+    for (const m of [this.settingsModal, this.campModal, this.timelineModal, this.teamModal]) {
       if (!m.classList.contains('hidden')) {
         m.classList.add('hidden');
         return true;
@@ -359,12 +421,14 @@ export class UI {
         'button',
         'upg' + (u.affordable ? ' can' : ''),
         `<div class="upg-head" style="background:${u.color}">${u.name}</div>
+         <span class="upg-info" data-info="${u.id}" role="button" aria-label="ข้อมูล">i</span>
          <div class="upg-ic">${ico(u.icon)}</div>
          <div class="upg-lvl">Lv.${u.lvl + 1}</div>
          <div class="upg-desc">${u.desc}</div>
          <div class="upg-cost">${ico('coin')} ${fmt(u.cost)}</div>`,
       );
       b.dataset.upg = u.id;
+      b.dataset.note = u.note;
       list.append(b);
     }
     this.q(this.menu, '[data-play-text]').textContent = `เล่น ด่าน ${d.save.level}`;
@@ -417,8 +481,7 @@ export class UI {
     this.hudKey = key;
     this.q(this.hud, '[data-hcoins]').textContent = fmt(s.coins);
     const tr = this.q(this.hud, '[data-htroops]');
-    tr.textContent = `${s.troops}/${s.cap}`;
-    tr.parentElement!.classList.toggle('full', s.troops >= s.cap);
+    tr.textContent = String(s.troops);
     const chip = (ic: string, name: string, v: number) =>
       `<div class="stat ${v > 1.001 ? 'up' : v < 0.999 ? 'down' : ''}">${ico(ic)} ${name} ×${v.toFixed(2)}</div>`;
     this.q(this.hud, '[data-hstats]').innerHTML =
@@ -598,6 +661,7 @@ export class UI {
         <div class="rewards">
           <div class="rw coin">${ico('coin')}<b data-reward>+${fmt(r.reward)}</b></div>
           ${r.win ? `<div class="rw star">${ico('star')}<b>+${r.stars}</b></div>` : ''}
+          ${r.trophies ? `<div class="rw trophy">${ico('trophy')}<b>+${r.trophies}</b></div>` : ''}
           ${ec ? `<div class="rw stamina">${ico('stamina')}<b>+${ec.stamina}</b></div>` : ''}
         </div>
         ${r.win && !ec ? `<div class="survivors">ทหารรอดชีวิต <b>${fmt(r.survivors)}</b></div>` : ''}
@@ -654,6 +718,61 @@ export class UI {
       </div>`;
     applySkins(this.timelineModal);
     this.timelineModal.classList.remove('hidden');
+  }
+
+  /** หน้าทีม: ฮีโร่ / สัตว์เลี้ยง / อุปกรณ์ */
+  renderTeam(d: TeamData): void {
+    const sel = this.teamSel >= 0 ? this.teamSel : d.equipped;
+    const hx = (c: number) => '#' + c.toString(16).padStart(6, '0');
+    const tabs = `<div class="team-tabs">
+        <button class="tab ${this.teamTab === 'hero' ? 'on' : ''}" data-tab="hero">ฮีโร่</button>
+        <button class="tab ${this.teamTab === 'pets' ? 'on' : ''}" data-tab="pets">สัตว์เลี้ยง</button>
+        <button class="tab ${this.teamTab === 'gears' ? 'on' : ''}" data-tab="gears">อุปกรณ์ ${ico('lock')}</button>
+      </div>`;
+    let body: string;
+    if (this.teamTab !== 'hero') {
+      body = `<div class="soon">${ico('lock')}<b>เร็วๆ นี้</b><div>${this.teamTab === 'pets' ? 'สัตว์เลี้ยงช่วยรบ' : 'อุปกรณ์เสริมพลัง'} จะมาในอัปเดตถัดไป</div></div>`;
+    } else {
+      const h = d.heroes[sel];
+      const def = h.def;
+      const btns = h.unlocked
+        ? `<div class="hero-btns">
+            <button class="hero-up ${h.affordable ? 'can' : ''}" data-act="hero-up" data-id="${def.id}" ${h.affordable ? '' : 'disabled'}>อัปเกรด<b>${ico('trophy')} ${h.cost}</b></button>
+            <button class="hero-eq ${d.equipped === def.id ? 'on' : ''}" data-act="hero-eq" data-id="${def.id}" ${d.equipped === def.id ? 'disabled' : ''}>${d.equipped === def.id ? 'ใช้งานอยู่' : 'เลือกใช้'}</button>
+          </div>`
+        : `<div class="hero-lock">ปลดล็อกที่ <b>${unlockText(def.unlockOrd)}</b></div>`;
+      body = `
+        <div class="hero-show" style="background:linear-gradient(160deg, ${hx(def.color)}, ${hx(def.accent)})">
+          <div class="hero-portrait ${h.unlocked ? '' : 'dim'}">${ico(`hero_${def.id}`)}</div>
+        </div>
+        <div class="hero-row">
+          <b class="hero-name">${def.name}</b>
+          <span class="hero-lv">Level ${h.lvl}</span>
+          <span class="hero-atk">ATK ${h.atk}</span>
+        </div>
+        <div class="hero-skill"><b>${def.skillName}</b><div>${def.desc}</div></div>
+        ${btns}
+        <div class="note">Level ฮีโร่รีเซ็ตเป็น 1 เมื่อขึ้นยุคใหม่</div>
+        <div class="hero-grid">
+          ${d.heroes
+            .map(
+              (x) => `<button class="hero-card ${x.def.id === sel ? 'sel' : ''} ${x.unlocked ? '' : 'locked'}" data-hero="${x.def.id}" style="--hc:${hx(x.def.color)}">
+              <div class="hc-ic">${ico(`hero_${x.def.id}`)}</div>
+              <div class="hc-name">${x.def.name}</div>
+              ${x.unlocked ? `<div class="hc-lv">Lv.${x.lvl}${d.equipped === x.def.id ? ' ✓' : ''}</div>` : `<div class="hc-lock">${ico('lock')}</div>`}
+            </button>`,
+            )
+            .join('')}
+        </div>`;
+    }
+    this.teamModal.innerHTML = `
+      <div class="card team">
+        <div class="team-head"><div class="card-title">ทีม</div><div class="team-tro">${ico('trophy')} <b>${d.trophies}</b></div></div>
+        ${tabs}
+        ${body}
+        <button class="play-btn" data-act="close-team"><span>ปิด</span></button>
+      </div>`;
+    applySkins(this.teamModal);
   }
 
   renderCamp(d: CampData): void {

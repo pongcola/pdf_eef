@@ -156,6 +156,79 @@ function laurel(cx, cy, R) {
   return out;
 }
 
+// ---------- ฮีโร่ (ภาพครึ่งตัว) ----------
+function heroBust(body, inner) {
+  return `
+    <path d="M44,252 Q46,178 128,176 Q210,178 212,252 Z" fill="${F(body)}" ${st()}/>
+    <circle cx="128" cy="118" r="70" fill="${F(C.skin)}" ${st()}/>
+    <circle cx="102" cy="132" r="9" fill="${O}"/><circle cx="154" cy="132" r="9" fill="${O}"/>
+    <circle cx="105" cy="128" r="3.5" fill="#fff"/><circle cx="157" cy="128" r="3.5" fill="#fff"/>
+    <ellipse cx="84" cy="152" rx="13" ry="8" fill="${C.blush}" opacity="0.85"/>
+    <ellipse cx="172" cy="152" rx="13" ry="8" fill="${C.blush}" opacity="0.85"/>
+    <path d="M116,156 Q128,166 140,156" fill="none" ${st(5)}/>
+    ${inner}`;
+}
+const HERO_ART = {
+  hero_0: () => svg(256, 256, heroBust('#f3f4f6', `
+    ${[0, 1, 2, 3, 4, 5, 6].map((i) => `<path d="M${70 + i * 19},70 L${62 + i * 19},${22 + (i % 2) * 14} L${88 + i * 19},64 Z" fill="${F('#7c3aed')}" ${st(5)}/>`).join('')}
+    <path d="M58,96 Q60,48 128,46 Q196,48 198,96 Q170,74 128,76 Q86,74 58,96 Z" fill="${F('#8b5cf6')}" ${st()}/>
+    <rect x="66" y="106" width="124" height="20" rx="10" fill="${F('#4b5563')}" ${st(5)}/>
+    <circle cx="100" cy="116" r="20" fill="${F('#a7f3a0')}" ${st(6)}/><circle cx="156" cy="116" r="20" fill="${F('#a7f3a0')}" ${st(6)}/>
+    <path d="M128,182 L112,252 L144,252 Z" fill="${F('#8b5cf6')}" ${st(5)}/>
+    <circle cx="206" cy="200" r="26" fill="${F('#7cf26b')}" ${st()}/><rect x="198" y="160" width="16" height="22" rx="4" fill="${F('#e5e7eb')}" ${st(5)}/>
+    ${shine(196, 190, 7, 4, -30, 0.7)}`)),
+  hero_1: () => svg(256, 256, heroBust('#d94b3a', `
+    <path d="M50,140 Q42,40 128,34 Q214,40 206,140 Q190,96 128,92 Q66,96 50,140 Z" fill="${F('#7f1d1d')}" ${st()}/>
+    <rect x="76" y="100" width="104" height="12" rx="6" fill="${F('#ffb02e')}" ${st(4)}/>
+    <circle cx="44" cy="214" r="34" fill="${F('#ef4444')}" ${st()}/><circle cx="212" cy="214" r="34" fill="${F('#ef4444')}" ${st()}/>
+    <path d="M200,170 Q214,150 206,128 Q226,148 224,176 Z M44,170 Q30,150 38,128 Q18,148 20,176 Z" fill="${F('#ffb02e')}" ${st(4)}/>
+    ${shine(32, 200, 9, 5, -30, 0.7)}${shine(200, 200, 9, 5, -30, 0.7)}`)),
+  hero_2: () => svg(256, 256, heroBust('#3f7d4a', `
+    <path d="M60,206 L196,206 M60,226 L196,226" stroke="#1f3d26" stroke-width="9"/>
+    <path d="M58,92 Q60,46 128,44 Q196,46 198,92 Z" fill="${F('#b91c1c')}" ${st()}/>
+    <rect x="52" y="86" width="152" height="18" rx="9" fill="${F('#991b1b')}" ${st(5)}/>
+    <path d="M86,150 Q128,214 170,150 Q156,176 128,178 Q100,176 86,150 Z" fill="${F('#8b5a2b')}" ${st(5)}/>
+    <line x1="214" y1="250" x2="214" y2="70" stroke="${O}" stroke-width="20" stroke-linecap="round"/>
+    <line x1="214" y1="250" x2="214" y2="70" stroke="${C.woodL}" stroke-width="10" stroke-linecap="round"/>
+    <path d="M214,70 Q256,74 252,120 Q236,112 214,118 Z" fill="${F('#c0c6d0')}" ${st()}/>`)),
+  hero_3: () => svg(256, 256, heroBust('#4b8fd9', `
+    <path d="M14,82 Q128,6 242,82 Q128,96 14,82 Z" fill="${F('#e8c27a')}" ${st()}/>
+    <path d="M60,82 Q128,40 196,82" fill="none" stroke="#b98a46" stroke-width="6"/>
+    <rect x="58" y="214" width="140" height="14" rx="6" fill="${F('#f5f5f4')}" ${st(4)}/>
+    <line x1="222" y1="252" x2="222" y2="110" stroke="${O}" stroke-width="16" stroke-linecap="round"/>
+    <line x1="222" y1="252" x2="222" y2="110" stroke="${C.woodL}" stroke-width="7" stroke-linecap="round"/>
+    <circle cx="222" cy="100" r="16" fill="none" stroke="${O}" stroke-width="12"/><circle cx="222" cy="100" r="16" fill="none" stroke="#93c5fd" stroke-width="6"/>
+    <path d="M18,180 Q40,170 30,150 M28,214 Q52,204 42,184" fill="none" stroke="#bfe3ff" stroke-width="7" stroke-linecap="round"/>`)),
+  hero_4: () => svg(256, 256, heroBust('#334155', `
+    <path d="M58,104 Q58,46 128,44 Q198,46 198,104 Z" fill="${F('#f8fafc')}" ${st()}/>
+    <path d="M100,78 L128,62 L156,78 L128,92 Z" fill="${F('#2563eb')}" ${st(4)}/>
+    <path d="M70,104 Q128,96 200,108 L208,124 Q130,112 64,120 Z" fill="${F('#2563eb')}" ${st(5)}/>
+    <circle cx="54" cy="128" r="16" fill="${F('#38f2ff')}" ${st()}/><circle cx="202" cy="128" r="16" fill="${F('#38f2ff')}" ${st()}/>
+    <path d="M54,144 Q60,168 92,164" fill="none" ${st(5)}/>
+    <g transform="translate(196 30)"><rect x="-34" y="-8" width="68" height="16" rx="6" fill="${F('#475569')}" ${st(5)}/>
+    <line x1="-46" y1="-14" x2="-18" y2="-14" ${st(5)}/><line x1="18" y1="-14" x2="46" y2="-14" ${st(5)}/></g>`)),
+  hero_5: () => svg(256, 256, heroBust('#b7791f', `
+    <path d="M44,74 Q128,30 212,74 L196,96 Q128,74 60,96 Z" fill="${F('#2b2b2b')}" ${st()}/>
+    <path d="M78,72 Q128,4 178,72 Z" fill="${F('#2b2b2b')}" ${st()}/>
+    <circle cx="128" cy="56" r="10" fill="${F('#facc15')}" ${st(4)}/>
+    <rect x="60" y="176" width="136" height="18" rx="8" fill="${F('#b91c1c')}" ${st(5)}/>
+    <g transform="translate(36 214) rotate(-30)"><rect x="-10" y="-34" width="20" height="56" rx="5" fill="${F('#374151')}" ${st(5)}/><rect x="-10" y="14" width="22" height="26" rx="6" fill="${F('#8b5a2b')}" ${st(5)}/></g>
+    <g transform="translate(220 214) rotate(30)"><rect x="-10" y="-34" width="20" height="56" rx="5" fill="${F('#374151')}" ${st(5)}/><rect x="-12" y="14" width="22" height="26" rx="6" fill="${F('#8b5a2b')}" ${st(5)}/></g>`)),
+  trophy: () => svg(256, 256, `
+    <path d="M70,52 Q22,52 26,96 Q32,136 84,140" fill="none" ${st(14)}/><path d="M70,52 Q22,52 26,96 Q32,136 84,140" fill="none" stroke="${C.goldD}" stroke-width="7"/>
+    <path d="M186,52 Q234,52 230,96 Q224,136 172,140" fill="none" ${st(14)}/><path d="M186,52 Q234,52 230,96 Q224,136 172,140" fill="none" stroke="${C.goldD}" stroke-width="7"/>
+    <path d="M62,32 L194,32 Q196,140 128,158 Q60,140 62,32 Z" fill="${F(C.gold)}" ${st()}/>
+    <rect x="110" y="156" width="36" height="40" fill="${F(C.goldD)}" ${st()}/>
+    <rect x="70" y="192" width="116" height="38" rx="10" fill="${F(C.woodL)}" ${st()}/>
+    <polygon points="${starPts(128, 86, 26, 11)}" fill="${C.goldL}" stroke="${C.goldD}" stroke-width="5" stroke-linejoin="round"/>
+    ${shine(88, 64, 10, 22, 10, 0.6)}`),
+  team: () => svg(256, 256, `
+    <path d="M128,20 L216,52 Q212,170 128,236 Q44,170 40,52 Z" fill="${F(C.sky)}" ${st()}/>
+    <path d="M128,44 L196,68 Q192,160 128,212 Q64,160 60,68 Z" fill="none" stroke="${C.gold}" stroke-width="9"/>
+    <polygon points="${starPts(128, 126, 50, 22)}" fill="${F(C.gold)}" ${st(7)}/>
+    ${shine(84, 76, 10, 22, 20, 0.55)}`),
+};
+
 // ---------- ไอคอน ----------
 const ICONS = {
   coin: () => svg(256, 256, coinShape(128, 124, 1)),
@@ -578,6 +651,7 @@ const BIG = {
 // ---------- รายการไฟล์ที่จะส่งออก ----------
 // [key, svg, ขนาดใน CSS px (×2 ตอนบันทึก), รูปแบบไฟล์]
 window.ART_JOBS = [
+  ...Object.entries(HERO_ART).map(([k, f]) => [k, f(), k.startsWith('hero_') ? [256, 256] : [128, 128], 'png']),
   ...Object.entries(ICONS).filter(([k]) => !UA[k]).map(([k, f]) => [k, f(), k.startsWith('up_') || k.startsWith('camp_') ? [160, 160] : [128, 128], 'png']),
   ...[0, 1, 2, 3, 4, 5].map((i) => [`era_card_${i}`, card(i), [640, 240], 'jpg']),
   ['logo', BIG.logo(), [512, 256], 'png'],
