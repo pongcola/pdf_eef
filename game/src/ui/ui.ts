@@ -85,14 +85,14 @@ export interface HudStats {
 }
 
 const WHEEL = [
-  { m: 1.5, c: '#3f8cff' },
-  { m: 2, c: '#2fbf63' },
-  { m: 1.2, c: '#8a63ff' },
-  { m: 3, c: '#ff4f6d' },
-  { m: 1.5, c: '#3f8cff' },
-  { m: 2, c: '#2fbf63' },
-  { m: 1.2, c: '#8a63ff' },
-  { m: 2.5, c: '#ff9f1c' },
+  { m: 1.5, c: '#7cb8ff' },
+  { m: 2, c: '#5fd9a4' },
+  { m: 1.2, c: '#b9a3ff' },
+  { m: 3, c: '#ff7f95' },
+  { m: 1.5, c: '#7cb8ff' },
+  { m: 2, c: '#5fd9a4' },
+  { m: 1.2, c: '#b9a3ff' },
+  { m: 2.5, c: '#ffa47d' },
 ];
 
 export function fmt(n: number): string {

@@ -94,19 +94,24 @@ export function ico(key: SlotKey | string, cls = ''): string {
   return `<span class="ico emo ${cls}">${slot?.emoji ?? ''}</span>`;
 }
 
-/** ใส่ภาพพื้นหลัง (ปุ่ม/การ์ด) ให้ element ทั้งหมดที่ตรง selector ถ้ามีไฟล์ */
+/**
+ * ใส่ภาพพื้นหลังให้ปุ่ม/การ์ด แบบ 9-slice (มุมไม่ยืด)
+ * slice = ขนาดมุมในรูป (px ของไฟล์), width = ขนาดมุมบนจอ (CSS px)
+ */
+const SKINS: { key: SlotKey; sel: string; slice: number; width: number }[] = [
+  { key: 'btn_play', sel: '.play-btn', slice: 64, width: 26 },
+  { key: 'btn_ghost', sel: '.ghost-btn', slice: 64, width: 22 },
+  { key: 'panel', sel: '.card', slice: 100, width: 34 },
+];
+
 export function applySkins(root: HTMLElement): void {
-  const skins: [SlotKey, string][] = [
-    ['btn_play', '.play-btn'],
-    ['btn_ghost', '.ghost-btn'],
-    ['panel', '.card'],
-  ];
-  for (const [key, sel] of skins) {
+  for (const { key, sel, slice, width } of SKINS) {
     const url = ART[key];
     if (!url) continue;
     root.querySelectorAll<HTMLElement>(sel).forEach((el) => {
       el.classList.add('skinned');
-      el.style.backgroundImage = `url("${url}")`;
+      el.style.borderStyle = 'solid';
+      el.style.borderImage = `url("${url}") ${slice} fill / ${width}px stretch`;
     });
   }
 }

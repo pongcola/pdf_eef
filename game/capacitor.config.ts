@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: 'Crowd Ages',
   webDir: 'dist',
   android: {
-    backgroundColor: '#1b2340',
+    backgroundColor: '#fdeccd',
   },
 };
 
