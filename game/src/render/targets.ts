@@ -1,4 +1,5 @@
 import {
+  type Material,
   BoxGeometry,
   BufferGeometry,
   CanvasTexture,
@@ -29,14 +30,14 @@ const starMat = new MeshLambertMaterial({ color: 0xffd23f, emissive: new Color(0
 const merge = (parts: BufferGeometry[]) => mergeGeometries(parts, false)!;
 const vcMat = new MeshLambertMaterial({ vertexColors: true });
 const idleRun = { value: 0 };
-let idleUnitMat: MeshLambertMaterial | null = null;
-function unitMat(): MeshLambertMaterial {
+let idleUnitMat: Material | null = null;
+function unitMat(): Material {
   idleUnitMat ??= unitMaterial(idleRun);
   return idleUnitMat;
 }
 
 const runRun = { value: 1 };
-let runUnitMat: MeshLambertMaterial | null = null;
+let runUnitMat: Material | null = null;
 
 function staticUnit(era: number, color: number, scale = 1, running = false): Mesh {
   const geo = unitGeometry(era, color).clone();
@@ -192,15 +193,13 @@ export class BlockTarget extends Target {
     this.group.add(this.shell, this.core);
   }
 
+  /** ก้อนหินยิงไม่แตก: นับแค่จำนวนครั้งที่โดน (ใช้เติมหลอด Level แคปซูล) */
+  hits = 0;
   hit(dmg: number): boolean {
-    const dead = super.hit(dmg);
-    if (!this.cracked && this.hp < this.maxHp * 0.5) {
-      this.cracked = true;
-      this.justCracked = true;
-      this.shell.visible = false;
-      this.core.visible = true;
-    }
-    return dead;
+    this.hits++;
+    this.pending += dmg;
+    this.hitT = 0.08;
+    return false;
   }
 
   update(dt: number, _t: number): void {
@@ -452,8 +451,17 @@ export class RecruitPad {
     this.group.add(this.strip);
   }
 
+  /** Level ที่ได้จากหลอดซ้าย (ยิงก้อนหิน) */
+  bonus = 0;
   get level(): number {
-    return Math.min(MAX_TIER, this.maxLevel, 1 + this.own);
+    return Math.min(MAX_TIER, this.maxLevel, 1 + this.own + this.bonus);
+  }
+
+  /** หลอดซ้ายเต็ม → ทหารในแคปซูล Level +1 */
+  addBonus(): void {
+    if (this.maxed) return;
+    this.bonus++;
+    this.refreshTier();
   }
 
   get maxed(): boolean {

@@ -208,7 +208,7 @@ export class UI {
       </div>
       <div class="hud-stats" data-hstats></div>
       <div class="gauge" data-gauge>
-        <div class="g-next" data-gnext>3</div>
+        <div class="g-next" data-gnext>Lv.2</div>
         <div class="g-bar"><i data-gfill></i></div>
         <div class="g-ic">${ico('troop')}<b data-gcur>1</b></div>
       </div>`,
@@ -505,7 +505,7 @@ export class UI {
     this.gaugeKey = key;
     this.q(this.hud, '[data-gfill]').style.height = `${Math.round(frac * 100)}%`;
     this.q(this.hud, '[data-gcur]').textContent = String(count);
-    this.q(this.hud, '[data-gnext]').textContent = max ? 'MAX' : String(count + 1);
+    this.q(this.hud, '[data-gnext]').textContent = max ? 'MAX' : `Lv.${count + 1}`;
   }
 
   pulseGauge(): void {
@@ -856,7 +856,7 @@ export class UI {
           ลากนิ้วซ้าย–ขวา ทหารจะยิงเอง • ยิงสิ่งกีดขวางให้แตกก่อนชน (ชั้นนอกแตกแล้วยังมีแกนข้างใน) •
           ยิงแผงไม้หน้าป้ายให้พัง แล้วยิงป้าย (อัตรายิง/ระยะ/พลัง) ให้ค่าขึ้นเป็นสีเขียว แล้ววิ่งผ่าน •
           ยิงแคปซูลให้แตก ทหารจะไปรอที่ Collect Area ต้องวิ่งผ่านถึงจะได้ •
-          ยิงหอหินเพื่อเติมเกจด้านซ้าย เต็มแล้วแคปซูลบนแท่นเพิ่ม 1 ช่อง (สูงสุด 5) •
+          ยิงก้อนหิน (ยิงไม่แตก ต้องหลบ) เพื่อเติมหลอดซ้าย เต็มแล้วทหารในแคปซูล Level +1 (เต็มยากขึ้นทุก Level) •
           ยิงแท่นแคปซูลจนแถบเต็ม ทหารในแคปซูล Level +1 (สูงสุด 10) • ศัตรูชุดดำปาอาวุธใส่ โดนแล้วตาย 1 ตัว ยิงให้ล้มก่อน •
           ยิงกรงให้เงินหล่น แล้ววิ่งเก็บ • ท้ายด่านยิงหอคอยเก็บเงิน ชนหอคอยแล้วทหารตายทีละตัว (ทหารหมดก็ยังผ่านด่าน) • ด่านยากขึ้นเรื่อยๆ •
           ทุก 5 ด่านสู้ราชันแห่งยุค เคลียร์แล้วขึ้นยุคใหม่ (อัปเกรดรีเซ็ต ทหารเหลือ 1 คน) • ใช้ดาวซื้ออัปเกรดถาวรที่ค่ายฝึก

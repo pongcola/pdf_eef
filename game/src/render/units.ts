@@ -1,5 +1,10 @@
 import {
   BoxGeometry,
+  CapsuleGeometry,
+  DataTexture,
+  MeshToonMaterial,
+  NearestFilter,
+  RedFormat,
   BufferGeometry,
   Color,
   ConeGeometry,
@@ -9,7 +14,7 @@ import {
   InstancedBufferAttribute,
   InstancedMesh,
   Matrix4,
-  MeshLambertMaterial,
+
   Object3D,
   SphereGeometry,
 } from 'three';
@@ -61,17 +66,27 @@ export function unitGeometry(era: number, team: number): BufferGeometry {
   const parts: BufferGeometry[] = [];
   const dark = 0x2a2420;
 
-  // ขา (แกว่งตอนวิ่ง)
-  parts.push(part(new BoxGeometry(0.13, 0.4, 0.14), E.legs, -0.09, 0.2, 0, { swing: 1, pivot: 0.4 }));
-  parts.push(part(new BoxGeometry(0.13, 0.4, 0.14), E.legs, 0.09, 0.2, 0, { swing: -1, pivot: 0.4 }));
-  // ลำตัว (สีทีม)
-  parts.push(part(new BoxGeometry(0.38, 0.42, 0.24), team, 0, 0.61, 0));
-  parts.push(part(new BoxGeometry(0.39, 0.06, 0.25), dark, 0, 0.43, 0));
-  // แขน: ซ้ายแกว่ง ขวาถืออาวุธ
-  parts.push(part(new BoxGeometry(0.1, 0.36, 0.12), team, -0.25, 0.62, 0, { swing: -0.8, pivot: 0.78 }));
-  parts.push(part(new BoxGeometry(0.1, 0.36, 0.12), team, 0.25, 0.64, -0.06, { rx: -0.5 }));
-  // หัว
-  parts.push(part(new SphereGeometry(0.17, 10, 8), E.skin, 0, 0.99, 0));
+  // ขา + รองเท้า (แกว่งตอนวิ่ง) ทรงกลมมนแบบตัวการ์ตูน
+  for (const [sx, sw] of [[-0.09, 1], [0.09, -1]] as const) {
+    parts.push(part(new CapsuleGeometry(0.065, 0.2, 4, 8), E.legs, sx, 0.22, 0, { swing: sw, pivot: 0.4 }));
+    parts.push(part(new SphereGeometry(0.08, 8, 6), dark, sx, 0.07, -0.03, { sy: 0.7, sz: 1.3, swing: sw, pivot: 0.4 }));
+  }
+  // ลำตัว (สีทีม) ทรงแคปซูล + เข็มขัด
+  parts.push(part(new CapsuleGeometry(0.175, 0.16, 4, 12), team, 0, 0.6, 0, { sz: 0.75 }));
+  parts.push(part(new CylinderGeometry(0.182, 0.182, 0.06, 12), dark, 0, 0.47, 0, { sz: 0.75 }));
+  parts.push(part(new BoxGeometry(0.07, 0.06, 0.03), 0xf2c94c, 0, 0.47, -0.135));
+  // แขนกลม + มือ: ซ้ายแกว่ง ขวาถืออาวุธ
+  parts.push(part(new CapsuleGeometry(0.05, 0.22, 4, 8), team, -0.23, 0.62, 0, { rz: 0.15, swing: -0.8, pivot: 0.78 }));
+  parts.push(part(new SphereGeometry(0.055, 8, 6), E.skin, -0.25, 0.46, 0, { swing: -0.8, pivot: 0.78 }));
+  parts.push(part(new CapsuleGeometry(0.05, 0.22, 4, 8), team, 0.25, 0.64, -0.06, { rx: -0.5 }));
+  parts.push(part(new SphereGeometry(0.055, 8, 6), E.skin, 0.26, 0.55, -0.2));
+  // หัว + หน้า (ตา แก้ม) — หันไปทาง -Z
+  parts.push(part(new SphereGeometry(0.18, 16, 12), E.skin, 0, 0.99, 0));
+  for (const sx of [-0.065, 0.065]) {
+    parts.push(part(new SphereGeometry(0.03, 8, 6), 0x2a1a14, sx, 1.0, -0.163, { sy: 1.3 }));
+    parts.push(part(new SphereGeometry(0.01, 6, 4), 0xffffff, sx + 0.01, 1.015, -0.19));
+    parts.push(part(new SphereGeometry(0.032, 8, 6), 0xf59aa0, sx * 1.55, 0.955, -0.15, { sz: 0.4 }));
+  }
 
   switch (E.decor) {
     case 'stone': {
@@ -141,9 +156,19 @@ export function unitGeometry(era: number, team: number): BufferGeometry {
   return merged;
 }
 
+let ramp: DataTexture | null = null;
+/** ไล่แสงแบบการ์ตูน 3 ระดับ */
+function toonRamp(): DataTexture {
+  if (ramp) return ramp;
+  ramp = new DataTexture(new Uint8Array([150, 210, 255]), 3, 1, RedFormat);
+  ramp.minFilter = ramp.magFilter = NearestFilter;
+  ramp.needsUpdate = true;
+  return ramp;
+}
+
 /** material ของตัวละครที่ขยับขา-แขนใน shader (ไม่ต้องมีโครงกระดูก) */
-export function unitMaterial(run: { value: number }, speed = 13): MeshLambertMaterial {
-  const m = new MeshLambertMaterial({ vertexColors: true });
+export function unitMaterial(run: { value: number }, speed = 13): MeshToonMaterial {
+  const m = new MeshToonMaterial({ vertexColors: true, gradientMap: toonRamp() });
   m.onBeforeCompile = (shader) => {
     shader.uniforms.uTime = sharedTime;
     shader.uniforms.uRun = run;
@@ -218,7 +243,7 @@ export class UnitSwarm {
 
   dispose(): void {
     this.mesh.geometry.dispose();
-    (this.mesh.material as MeshLambertMaterial).dispose();
+    (this.mesh.material as MeshToonMaterial).dispose();
     this.mesh.removeFromParent();
   }
 }

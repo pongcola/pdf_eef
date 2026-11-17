@@ -189,11 +189,12 @@ export function generateLevel(level: number, player: PlayerStats): LevelData {
 
     switch (type) {
       case 'block': {
-        const n = rng() < 0.6 || (hard <= 3 && i < 4) ? 1 : hard >= 8 && rng() < 0.15 ? 3 : 2;
+        // ก้อนหินยิงไม่แตก จึงต้องเหลือเลนว่างให้หลบเสมอ (สูงสุด 2 ก้อน)
+        const n = rng() < 0.6 || (hard <= 3 && i < 4) ? 1 : 2;
         const lanes = [...LANES].sort(() => rng() - 0.5).slice(0, n);
         for (const x of lanes) {
           // ถ้าปิดครบ 3 เลน ก้อนจะอ่อนลง เพื่อให้ยิงทะลุได้
-          const hp = hpOf(tBreak * (0.7 + rng() * 0.6) * (n === 3 ? 0.55 : 1));
+          const hp = hpOf(tBreak * (0.7 + rng() * 0.6));
           items.push({ type: 'block', d, x, hp, coins: blockCoins(hp) });
         }
         break;

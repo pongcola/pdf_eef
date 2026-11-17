@@ -1,4 +1,5 @@
 import {
+  type Material,
   ConeGeometry,
   CylinderGeometry,
   Float32BufferAttribute,
@@ -26,7 +27,7 @@ export class Boss {
   private waveT = -1;
   private hurtT = 0;
   private deadT = -1;
-  private readonly baseMat: MeshLambertMaterial;
+  private readonly baseMat: Material;
 
   constructor(era: number, z: number, eraBoss: boolean) {
     this.scale = eraBoss ? 5.2 : 4.2;

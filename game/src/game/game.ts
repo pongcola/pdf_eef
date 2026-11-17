@@ -117,6 +117,11 @@ interface EnemyGroup {
 
 const BOSS_STOP = 10.5;
 
+/** จำนวนครั้งที่ต้องยิงโดนก้อนหินเพื่อให้หลอดซ้ายเต็ม ที่ Level นั้นๆ */
+function gaugeHits(level: number): number {
+  return Math.round(15 * Math.pow(1.35, level - 1));
+}
+
 /** เป้าของสกิลฮีโร่ */
 type HeroTarget = { kind: 't'; t: Target } | { kind: 'e'; u: EnemyUnit } | { kind: 'b' };
 
@@ -196,8 +201,8 @@ export class Game {
   private gaugeGain = 1;
   /** ดาเมจที่ต้องยิงใส่หอหินเพื่อให้เกจเต็ม 1 ครั้ง */
   private gaugeNeed = 1;
-  /** จำนวนแคปซูลบนแท่น (เกจเต็มแล้ว +1, สูงสุด 5) */
-  private capCount = 2;
+  /** Level ทหารในแคปซูลจากหลอดซ้าย */
+  private capLevel = 1;
   private enemyShots: EnemyShot[] = [];
   private ramT = 0;
   private hero: HeroModel | null = null;
@@ -445,11 +450,8 @@ export class Game {
     this.income = incomeMult(up.economy);
     // เกจซ้ายเริ่มต้นตามแถบความคืบหน้าของอัปเกรดความจุ + ค่ายฝึก
     this.gauge = Math.min(0.95, capacityProgress(up.capacity) + meta.logistics * 0.1);
-    this.capCount = capsuleStartCount(up.capacity);
-    // เกจเต็มเมื่อยิงหอหินได้ราว 1.6 ก้อน
-    const blockHp = this.blocks.map((b) => b.maxHp);
-    const avg = blockHp.length ? blockHp.reduce((a, b) => a + b, 0) / blockHp.length : 10;
-    this.gaugeNeed = (avg * 1.6) / this.gaugeGain;
+    this.capLevel = 1;
+    this.gaugeNeed = gaugeHits(1);
     for (const sh of this.enemyShots) sh.mesh.visible = false;
     for (const sh of this.enemyShots) sh.alive = false;
     this.dist = 0;
@@ -808,8 +810,12 @@ export class Game {
         return;
       }
     }
-    // เกจซ้ายขึ้นเฉพาะตอนยิงหอหิน
-    if (best instanceof BlockTarget) this.addGauge(Math.min(dmg, best.hp));
+    // หลอดซ้ายขึ้นตามจำนวนครั้งที่ยิงโดนก้อนหิน (ก้อนหินไม่แตก)
+    if (best instanceof BlockTarget) {
+      best.hit(dmg);
+      this.addGauge(1);
+      return;
+    }
     const dead = best.hit(dmg);
     if (best instanceof BlockTarget && best.justCracked) {
       best.justCracked = false;
@@ -878,26 +884,22 @@ export class Game {
     this.ui.coinPop(`เต็ม +${v}`, p.x, p.y);
   }
 
-  /** เติมเกจด้านซ้ายด้วยดาเมจที่ยิงใส่หอหิน เต็มแล้วแคปซูลบนแท่น +1 ช่อง (สูงสุด 5) */
-  private addGauge(dmg: number): void {
-    if (this.state !== 'run' || this.capCount >= 5) return;
-    this.gauge += dmg / this.gaugeNeed;
-    while (this.gauge >= 1 && this.capCount < 5) {
+  /** หลอดซ้าย: ยิงโดนก้อนหิน 1 ครั้ง = 1 แต้ม เต็มแล้วทหารในแคปซูล Level +1 (เต็มยากขึ้นทุก Level) */
+  private addGauge(hits: number): void {
+    if (this.state !== 'run' || this.capLevel >= MAX_TIER) return;
+    this.gauge += (hits * this.gaugeGain) / this.gaugeNeed;
+    while (this.gauge >= 1 && this.capLevel < MAX_TIER) {
       this.gauge -= 1;
-      this.capCount++;
-      this.gaugeNeed *= 1.3;
-      // แท่นที่ยังอยู่ข้างหน้าได้แคปซูลเพิ่ม
-      for (const p of this.pads) {
-        if (p.collected || p.z > this.squad.z - 2) continue;
-        for (const c of p.setCount(this.capCount)) this.targets.push(c);
-      }
+      this.capLevel++;
+      this.gaugeNeed = gaugeHits(this.capLevel);
+      for (const p of this.pads) if (!p.collected) p.addBonus();
       const q = this.project(this.squad.x, 2.6, this.squad.z);
-      this.ui.floatText(`แคปซูล +1 (${this.capCount} ช่อง)`, q.x, q.y, true);
+      this.ui.floatText(`แคปซูล Level ${this.capLevel}!`, q.x, q.y, true);
       this.ui.pulseGauge();
       sfx.gateGood();
       buzz('medium');
     }
-    if (this.capCount >= 5) this.gauge = 1;
+    if (this.capLevel >= MAX_TIER) this.gauge = 1;
   }
 
   /** เก็บเงินระหว่างทาง (คูณอัปเกรดรายได้) */
@@ -1135,7 +1137,7 @@ export class Game {
     const sz = this.squad.z;
     const out: HeroTarget[] = [];
     for (const t of this.active) {
-      if (!t.alive || t instanceof StatGate || t instanceof PadBody) continue;
+      if (!t.alive || t instanceof StatGate || t instanceof PadBody || t instanceof BlockTarget) continue;
       if (t.z > sz - 1 || t.z < sz - range) continue;
       out.push({ kind: 't', t });
     }
@@ -1651,7 +1653,7 @@ export class Game {
   }
 
   private updateHud(): void {
-    this.ui.setGauge(this.gauge, this.capCount, this.capCount >= 5);
+    this.ui.setGauge(this.gauge, this.capLevel, this.capLevel >= MAX_TIER);
     this.ui.setHudStats({
       coins: this.collected,
       troops: this.squad.count,
@@ -1685,7 +1687,7 @@ export class Game {
     for (const t of this.targets) {
       const isGate = t instanceof StatGate;
       const showable =
-        t.kind !== 'pad' && t.alive && (!isGate || t.blocked) && t.z < sz + 1 && t.z > sz - 45 && this.state !== 'menu';
+        t.kind !== 'pad' && t.kind !== 'block' && t.alive && (!isGate || t.blocked) && t.z < sz + 1 && t.z > sz - 45 && this.state !== 'menu';
       if (!showable) {
         if (t.label) t.label.style.display = 'none';
       } else {
