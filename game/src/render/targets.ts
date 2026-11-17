@@ -17,11 +17,11 @@ import {
   TorusGeometry,
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { ERAS, PLAYER_COLOR, TIER_COLORS } from '../eras.ts';
+import { ERAS, PLAYER_COLOR, TIER_COLORS, tierLook } from '../eras.ts';
 import { STAT_LABEL, type StatKind } from '../game/level.ts';
 import { part, unitGeometry, unitMaterial } from './units.ts';
 
-export type TargetKind = 'block' | 'cage' | 'capsule' | 'crystal' | 'stat';
+export type TargetKind = 'block' | 'cage' | 'capsule' | 'pad' | 'crystal' | 'stat';
 
 const starMat = new MeshLambertMaterial({ color: 0xffd23f, emissive: new Color(0x8a6a00) });
 
@@ -34,12 +34,21 @@ function unitMat(): MeshLambertMaterial {
   return idleUnitMat;
 }
 
-function staticUnit(era: number, color: number, scale = 1): Mesh {
+const runRun = { value: 1 };
+let runUnitMat: MeshLambertMaterial | null = null;
+
+function staticUnit(era: number, color: number, scale = 1, running = false): Mesh {
   const geo = unitGeometry(era, color).clone();
-  geo.setAttribute('aPhase', new Float32BufferAttribute(new Float32Array(geo.getAttribute('position').count), 1));
-  const m = new Mesh(geo, unitMat());
+  const n = geo.getAttribute('position').count;
+  geo.setAttribute('aPhase', new Float32BufferAttribute(new Float32Array(n).fill(Math.random() * 6), 1));
+  const m = new Mesh(geo, running ? (runUnitMat ??= unitMaterial(runRun)) : unitMat());
   m.scale.setScalar(scale);
   return m;
+}
+
+/** ทหารระดับ tier ของยุค era (ทหารระดับสูงหน้าตาเป็นทหารยุคถัดไป) */
+export function troopMesh(era: number, tier: number, running = false): Mesh {
+  return staticUnit(tierLook(era, tier), TIER_COLORS[tier - 1], 1 + (tier - 1) * 0.05, running);
 }
 
 /** เป้าที่ยิงได้ */
@@ -156,14 +165,47 @@ function blockGeometry(era: number): BufferGeometry {
   return g;
 }
 
+const coreGeo = merge([
+  part(new CylinderGeometry(0.62, 0.66, 1.25, 12), 0xc8704e, 0, 0.62, 0),
+  ...[0.3, 0.62, 0.94].map((y) => part(new CylinderGeometry(0.665, 0.665, 0.05, 12), 0x8e4a33, 0, y, 0)),
+  part(new CylinderGeometry(0.7, 0.7, 0.16, 14), 0xb08458, 0, 1.3, 0),
+  part(new CylinderGeometry(0.5, 0.5, 0.04, 14), 0xd8b98a, 0, 1.39, 0),
+]);
+
+/** สิ่งกีดขวาง 2 ชั้น: เปลือกนอกแตกเมื่อเลือดเหลือครึ่ง เหลือแกนข้างใน */
 export class BlockTarget extends Target {
   readonly kind = 'block' as const;
   readonly coins: number;
+  private readonly shell: Mesh;
+  private readonly core: Mesh;
+  cracked = false;
+  /** เพิ่งแตกชั้นนอก (เกมใช้ทำเอฟเฟกต์) */
+  justCracked = false;
   constructor(era: number, x: number, z: number, hp: number, coins: number) {
     super(x, z, hp);
     this.coins = coins;
     this.halfW = 1.0;
-    this.group.add(new Mesh(blockGeometry(era), vcMat));
+    this.shell = new Mesh(blockGeometry(era), vcMat);
+    this.core = new Mesh(coreGeo, vcMat);
+    this.core.visible = false;
+    this.group.add(this.shell, this.core);
+  }
+
+  hit(dmg: number): boolean {
+    const dead = super.hit(dmg);
+    if (!this.cracked && this.hp < this.maxHp * 0.5) {
+      this.cracked = true;
+      this.justCracked = true;
+      this.shell.visible = false;
+      this.core.visible = true;
+    }
+    return dead;
+  }
+
+  update(dt: number, _t: number): void {
+    if (this.hitT > 0) this.hitT -= dt;
+    const sq = this.hitT > 0 ? 0.93 : 1;
+    this.group.scale.set(2 - sq, sq, 2 - sq);
   }
 }
 
@@ -177,10 +219,14 @@ const ringGeo = new CylinderGeometry(1.0, 1.0, 0.16, 18);
 export class CageTarget extends Target {
   readonly kind = 'cage' as const;
   readonly prisoners: number;
+  readonly cashValue: number;
+  /** จำนวนครั้งที่ปล่อยเงินไปแล้ว (ทุกๆ 25% ของเลือด) */
+  drops = 0;
   private readonly inmates: Mesh[] = [];
-  constructor(era: number, x: number, z: number, hp: number, prisoners: number) {
+  constructor(era: number, x: number, z: number, hp: number, prisoners: number, cashValue: number) {
     super(x, z, hp);
     this.prisoners = prisoners;
+    this.cashValue = cashValue;
     this.halfW = 1.0;
     const base = new Mesh(ringGeo, cageMetal);
     base.position.y = 0.08;
@@ -224,52 +270,63 @@ export class CageTarget extends Target {
   }
 }
 
-// ---------- แท่นทหารพิเศษ ----------
+// ---------- แท่นทหาร (ยิงเพื่ออัปเลเวล) + Collect Area ----------
 
-const padMat = new MeshLambertMaterial({ color: 0x2ec4b6 });
-const padEdgeMat = new MeshLambertMaterial({ color: 0x1b8f85 });
+const padMat = new MeshLambertMaterial({ color: 0x3ccf6a });
+const padEdgeMat = new MeshLambertMaterial({ color: 0x23a050 });
+const padWallMat = new MeshLambertMaterial({ color: 0x2fb85a });
 const glassMat = new MeshLambertMaterial({ color: 0xcff6ff, transparent: true, opacity: 0.38, depthWrite: false });
 const capGeo = new CylinderGeometry(0.46, 0.46, 0.14, 14);
 const glassGeo = new CylinderGeometry(0.44, 0.44, 1.35, 14, 1, true);
+const baseGeo = new CylinderGeometry(0.42, 0.48, 0.3, 8);
 
 export class CapsuleTarget extends Target {
   readonly kind = 'capsule' as const;
-  readonly unit: Mesh;
+  unit: Mesh;
+  readonly pad: RecruitPad;
   private readonly glass: Mesh;
   private readonly cap: Mesh;
-  readonly tier: number;
-  constructor(era: number, x: number, z: number, hp: number, tier: number) {
+  private readonly era: number;
+  constructor(pad: RecruitPad, era: number, x: number, z: number, hp: number) {
     super(x, z, hp);
-    this.tier = tier;
+    this.pad = pad;
+    this.era = era;
     this.halfW = 0.5;
     this.halfD = 0.5;
-    const ring = new Mesh(capGeo, padEdgeMat);
-    ring.position.y = 0.2;
-    this.group.add(ring);
+    const base = new Mesh(baseGeo, padEdgeMat);
+    base.position.y = 0.3;
+    this.group.add(base);
     this.glass = new Mesh(glassGeo, glassMat);
-    this.glass.position.y = 0.95;
+    this.glass.position.y = 1.12;
     this.glass.renderOrder = 3;
     this.group.add(this.glass);
     this.cap = new Mesh(capGeo, padEdgeMat);
-    this.cap.position.y = 1.66;
+    this.cap.position.y = 1.83;
     this.group.add(this.cap);
-    this.unit = staticUnit(era, TIER_COLORS[tier - 1], 1 + (tier - 1) * 0.05);
-    this.unit.position.y = 0.27;
+    this.unit = troopMesh(era, 1);
+    this.unit.position.y = 0.45;
     this.group.add(this.unit);
   }
 
-  /** แตกแล้ว: เหลือแต่ทหารยืนรอ */
+  /** เปลี่ยนหน้าตาทหารข้างในตามเลเวลของแท่น */
+  setTier(tier: number): void {
+    this.group.remove(this.unit);
+    this.unit.geometry.dispose();
+    this.unit = troopMesh(this.era, tier);
+    this.unit.position.y = 0.45;
+    this.group.add(this.unit);
+  }
+
+  /** แตกแล้ว: ทหารวิ่งออกไป */
   shatter(): void {
     this.glass.visible = false;
     this.cap.visible = false;
+    this.unit.visible = false;
   }
 
   update(dt: number, t: number): void {
     if (this.alive) super.update(dt, t);
-    else {
-      this.group.scale.setScalar(1);
-      this.unit.position.y = 0.27 + Math.abs(Math.sin(t * 6 + this.x)) * 0.15;
-    }
+    else this.group.scale.setScalar(1);
   }
 
   dispose(): void {
@@ -278,49 +335,221 @@ export class CapsuleTarget extends Target {
   }
 }
 
+/** ตัวแท่น: รับกระสุนเพื่อเพิ่มเลเวล (ไม่มีวันแตก) */
+export class PadBody extends Target {
+  readonly kind = 'pad' as const;
+  readonly pad: RecruitPad;
+  constructor(pad: RecruitPad) {
+    super(pad.x, pad.z - 0.05, Infinity);
+    this.pad = pad;
+    this.halfW = 1.6;
+    this.halfD = 0.7;
+    this.group.visible = false;
+  }
+
+  hit(dmg: number): boolean {
+    this.pending += dmg;
+    return false;
+  }
+
+  update(): void {}
+}
+
+/** ทหารที่ออกจากแคปซูล วิ่งไปรอที่ Collect Area */
+export interface Walker {
+  mesh: Mesh;
+  tier: number;
+  x: number;
+  z: number;
+  tx: number;
+  tz: number;
+  arrived: boolean;
+}
+
+function collectTexture(): CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 512;
+  c.height = 96;
+  const g = c.getContext('2d')!;
+  g.font = '800 64px Kanit, system-ui, sans-serif';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.lineWidth = 12;
+  g.strokeStyle = '#1b5f8a';
+  g.strokeText('Collect Area', 256, 52);
+  g.fillStyle = '#e6fbff';
+  g.fillText('Collect Area', 256, 52);
+  const t = new CanvasTexture(c);
+  t.colorSpace = SRGBColorSpace;
+  return t;
+}
+let collectTex: CanvasTexture | null = null;
+const stripMat = new MeshBasicMaterial({ color: 0x7fdcff, transparent: true, opacity: 0.55, depthWrite: false });
+
 export class RecruitPad {
   readonly group = new Group();
   readonly x: number;
   readonly z: number;
   readonly capsules: CapsuleTarget[] = [];
-  readonly tier: number;
+  readonly body: PadBody;
+  readonly era: number;
+  /** เลเวลของทหารในแท่น (ยิงเพิ่มได้) */
+  level = 1;
+  readonly maxLevel: number;
+  /** ดาเมจสะสมในเลเวลปัจจุบัน */
+  prog = 0;
+  readonly levelHp: number;
+  readonly walkers: Walker[] = [];
+  readonly collectX: number;
+  readonly collectZ: number;
+  readonly collectHalfW: number;
   collected = false;
   label: HTMLElement | null = null;
-  constructor(era: number, x: number, z: number, count: number, hp: number, tier: number) {
-    this.tier = tier;
+  private readonly strip: Group;
+
+  constructor(era: number, x: number, z: number, count: number, capsuleHp: number, levelHp: number, maxLevel: number, collect: { x: number; z: number; w: number }) {
+    this.era = era;
     this.x = x;
     this.z = z;
-    const pad = new Mesh(new CylinderGeometry(1.55, 1.65, 0.16, 24), padMat);
-    pad.position.set(x, 0.08, z);
+    this.levelHp = levelHp;
+    this.maxLevel = maxLevel;
+    this.collectX = collect.x;
+    this.collectZ = collect.z;
+    this.collectHalfW = collect.w / 2;
+    const pad = new Mesh(new CylinderGeometry(1.7, 1.8, 0.3, 28), padMat);
+    pad.position.set(x, 0.15, z);
     this.group.add(pad);
-    const edge = new Mesh(new TorusGeometry(1.55, 0.07, 6, 32), padEdgeMat);
+    const edge = new Mesh(new TorusGeometry(1.72, 0.09, 6, 32), padEdgeMat);
     edge.rotation.x = Math.PI / 2;
-    edge.position.set(x, 0.17, z);
+    edge.position.set(x, 0.3, z);
     this.group.add(edge);
+    // ผนังโค้งด้านหลัง
+    const wall = new Mesh(new CylinderGeometry(1.55, 1.55, 1.9, 20, 1, true, Math.PI * 0.62, Math.PI * 0.76), padWallMat);
+    wall.position.set(x, 1.1, z);
+    this.group.add(wall);
+    this.body = new PadBody(this);
     for (let i = 0; i < count; i++) {
-      const c = new CapsuleTarget(era, x + (i - (count - 1) / 2) * 1.2, z, hp, tier);
+      const c = new CapsuleTarget(this, era, x + (i - (count - 1) / 2) * 1.15, z + 0.1, capsuleHp);
       this.capsules.push(c);
       this.group.add(c.group);
     }
+    // Collect Area: แถบสีฟ้าบนถนนข้างหน้า
+    this.strip = new Group();
+    const area = new Mesh(new PlaneGeometry(collect.w, 2.6), stripMat);
+    area.rotation.x = -Math.PI / 2;
+    area.position.y = 0.03;
+    area.renderOrder = 1;
+    this.strip.add(area);
+    const text = new Mesh(new PlaneGeometry(Math.min(collect.w, 4.4), 0.85), new MeshBasicMaterial({ map: (collectTex ??= collectTexture()), transparent: true, depthWrite: false }));
+    text.rotation.x = -Math.PI / 2;
+    text.position.set(0, 0.05, 0.6);
+    text.renderOrder = 2;
+    this.strip.add(text);
+    this.strip.position.set(collect.x, 0, collect.z);
+    this.group.add(this.strip);
+  }
+
+  /** เพิ่มดาเมจเข้าแท่น; คืนค่า true ถ้าเลเวลขึ้น */
+  addProgress(dmg: number): boolean {
+    if (this.level >= this.maxLevel) return false;
+    this.prog += dmg;
+    const need = this.levelHp * Math.pow(1.6, this.level - 1);
+    if (this.prog < need) return false;
+    this.prog -= need;
+    this.level++;
+    for (const c of this.capsules) if (c.alive) c.setTier(this.level);
+    return true;
+  }
+
+  levelFrac(): number {
+    if (this.level >= this.maxLevel) return 1;
+    return Math.min(1, this.prog / (this.levelHp * Math.pow(1.6, this.level - 1)));
+  }
+
+  /** แคปซูลแตก → ทหารวิ่งไปยืนรอใน Collect Area */
+  release(c: CapsuleTarget): void {
+    const i = this.walkers.length;
+    const mesh = troopMesh(this.era, this.level, true);
+    mesh.position.set(c.x, 0.3, c.z);
+    this.group.add(mesh);
+    const span = Math.min(this.collectHalfW * 2 - 0.8, 3.6);
+    this.walkers.push({
+      mesh,
+      tier: this.level,
+      x: c.x,
+      z: c.z,
+      tx: this.collectX - span / 2 + ((i * 0.9) % span),
+      tz: this.collectZ - 0.4 - Math.floor((i * 0.9) / span) * 0.8,
+      arrived: false,
+    });
+  }
+
+  updateWalkers(dt: number): void {
+    for (const w of this.walkers) {
+      if (w.arrived) continue;
+      const dx = w.tx - w.x;
+      const dz = w.tz - w.z;
+      const d = Math.hypot(dx, dz);
+      const step = dt * 6;
+      if (d <= step) {
+        w.x = w.tx;
+        w.z = w.tz;
+        w.arrived = true;
+        w.mesh.rotation.y = Math.PI;
+        w.mesh.position.y = 0;
+      } else {
+        w.x += (dx / d) * step;
+        w.z += (dz / d) * step;
+        w.mesh.rotation.y = Math.atan2(-dx, -dz);
+        w.mesh.position.y = 0.3;
+      }
+      w.mesh.position.x = w.x;
+      w.mesh.position.z = w.z;
+    }
+  }
+
+  /** เก็บแล้ว/ผ่านไปแล้ว: ซ่อนทหารที่รอ */
+  clearWalkers(): void {
+    for (const w of this.walkers) w.mesh.visible = false;
+    this.strip.visible = false;
   }
 
   dispose(): void {
     this.group.removeFromParent();
     for (const c of this.capsules) c.dispose();
-    for (const ch of this.group.children) if (ch instanceof Mesh && ch.material === padMat) ch.geometry.dispose();
+    for (const w of this.walkers) w.mesh.geometry.dispose();
   }
 }
 
-// ---------- คริสตัลในทุ่งสมบัติ ----------
+// ---------- ทุ่งสมบัติ: หอคอยหลากสี มีเงินบนยอด ----------
 
-const CRYSTAL_COLORS = [0x4aa3ff, 0x36d1e0, 0x3ddc84, 0x9be22d, 0xffd23f, 0xff9f1c, 0xff5d5d, 0xff4fd8, 0xb46bff, 0xffffff];
-const crystalMats = CRYSTAL_COLORS.map(
-  (c) => new MeshLambertMaterial({ color: c, emissive: new Color(c).multiplyScalar(0.25), flatShading: true }),
-);
-const crystalBaseMat = new MeshLambertMaterial({ color: 0x3b3f4c });
-const shardGeo = new OctahedronGeometry(0.6, 0);
+/** สีหอคอยไล่ตามความลึก: ฟ้า → เขียว → ม่วง → ทอง → แดง */
+const TOWER_COLORS = [0x4a7fe0, 0x3fbf6a, 0xb04fd0, 0xe8b62a, 0xe0504a];
+const towerGeoCache = new Map<number, BufferGeometry>();
+function towerGeometry(color: number): BufferGeometry {
+  const c = towerGeoCache.get(color);
+  if (c) return c;
+  const dark = new Color(color).multiplyScalar(0.72).getHex();
+  const parts: BufferGeometry[] = [
+    part(new CylinderGeometry(1.05, 1.2, 0.35, 10), dark, 0, 0.18, 0),
+    part(new CylinderGeometry(0.82, 0.95, 1.7, 10), color, 0, 1.15, 0),
+    part(new CylinderGeometry(1.08, 0.9, 0.32, 10), color, 0, 2.12, 0),
+  ];
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2;
+    parts.push(part(new BoxGeometry(0.34, 0.32, 0.34), color, Math.cos(a) * 0.9, 2.42, Math.sin(a) * 0.9, { ry: -a }));
+  }
+  parts.push(part(new BoxGeometry(0.34, 0.5, 0.06), dark, 0, 1.1, 0.92));
+  // กองเงินบนยอด
+  for (let i = 0; i < 3; i++) {
+    parts.push(part(new BoxGeometry(0.85, 0.2, 0.46), 0x3ea85a, (i - 1) * 0.12, 2.4 + i * 0.21, (i % 2) * 0.1 - 0.05, { ry: 0.3 }));
+    parts.push(part(new BoxGeometry(0.2, 0.21, 0.48), 0xf0f0e0, (i - 1) * 0.12, 2.4 + i * 0.21, (i % 2) * 0.1 - 0.05, { ry: 0.3 }));
+  }
+  const g = merge(parts);
+  towerGeoCache.set(color, g);
+  return g;
+}
 const starGeo = new OctahedronGeometry(0.42, 0);
-const crystalBaseGeo = new CylinderGeometry(1.0, 1.1, 0.3, 8);
 
 export class CrystalTarget extends Target {
   readonly kind = 'crystal' as const;
@@ -334,28 +563,13 @@ export class CrystalTarget extends Target {
     this.coins = coins;
     this.tier = tier;
     this.star = star;
-    this.halfW = 1.2;
-    this.halfD = 0.7;
-    const ti = Math.min(CRYSTAL_COLORS.length - 1, tier);
-    this.color = CRYSTAL_COLORS[ti];
-    const mat = crystalMats[ti];
-    const base = new Mesh(crystalBaseGeo, crystalBaseMat);
-    base.position.y = 0.15;
-    this.group.add(base);
-    const big = new Mesh(shardGeo, mat);
-    big.scale.set(1, 2.1, 1);
-    big.position.y = 1.4;
-    this.group.add(big);
-    for (const s of [-1, 1]) {
-      const small = new Mesh(shardGeo, mat);
-      small.scale.set(0.55, 1.2, 0.55);
-      small.position.set(s * 0.6, 0.85, 0.15);
-      small.rotation.z = -s * 0.45;
-      this.group.add(small);
-    }
+    this.halfW = 1.15;
+    this.halfD = 0.8;
+    this.color = TOWER_COLORS[Math.min(TOWER_COLORS.length - 1, Math.floor(tier / 3))];
+    this.group.add(new Mesh(towerGeometry(this.color), vcMat));
     if (star) {
       this.starMesh = new Mesh(starGeo, starMat);
-      this.starMesh.position.y = 3.3;
+      this.starMesh.position.y = 3.6;
       this.group.add(this.starMesh);
     }
   }
@@ -399,8 +613,11 @@ export class CashStack {
 
 // ---------- ป้ายค่าพลัง ----------
 
-const postMat = new MeshLambertMaterial({ color: 0xffffff });
-const postGeo = new BoxGeometry(0.22, 2.9, 0.22);
+const postMat = new MeshLambertMaterial({ color: 0x5a5f6b });
+const postGeo = new BoxGeometry(0.24, 2.9, 0.24);
+const spikeTopGeo = new BoxGeometry(0.36, 0.36, 0.36);
+const plankMat = new MeshLambertMaterial({ color: 0x9a6440 });
+const plankGeo = new BoxGeometry(4.0, 0.34, 0.14);
 
 export class StatGate extends Target {
   readonly kind = 'stat' as const;
@@ -413,13 +630,21 @@ export class StatGate extends Target {
   private readonly tex: CanvasTexture;
   private readonly mat: MeshBasicMaterial;
   private readonly panel: Mesh;
+  /** แผงไม้กั้นด้านหน้า: ต้องยิงให้พังก่อนถึงจะยิงเพิ่มค่าได้ */
+  barrierHp: number;
+  readonly barrierMax: number;
+  private readonly barrier = new Group();
+  /** เพิ่งพังแผงไม้ (เกมใช้ทำเอฟเฟกต์) */
+  justBroke = false;
 
-  constructor(x: number, z: number, stat: StatKind, value: number) {
+  constructor(x: number, z: number, stat: StatKind, value: number, barrierHp = 0) {
     super(x, z, Infinity);
     this.stat = stat;
     this.value = value;
+    this.barrierHp = barrierHp;
+    this.barrierMax = barrierHp;
     this.halfW = 2.15;
-    this.halfD = 0.3;
+    this.halfD = 0.5;
     this.canvas = document.createElement('canvas');
     this.canvas.width = 320;
     this.canvas.height = 160;
@@ -434,14 +659,51 @@ export class StatGate extends Target {
       const p = new Mesh(postGeo, postMat);
       p.position.set(sx * 2.15, 1.45, 0);
       this.group.add(p);
+      const top = new Mesh(spikeTopGeo, postMat);
+      top.position.set(sx * 2.15, 3.0, 0);
+      top.rotation.set(Math.PI / 4, 0, Math.PI / 4);
+      this.group.add(top);
+    }
+    if (barrierHp > 0) {
+      for (const [y, rz] of [
+        [0.45, 0],
+        [1.05, 0],
+        [1.65, 0],
+        [1.05, 0.42],
+        [1.05, -0.42],
+      ]) {
+        const pl = new Mesh(plankGeo, plankMat);
+        pl.position.set(0, y, 0.38);
+        pl.rotation.z = rz;
+        this.barrier.add(pl);
+      }
+      this.group.add(this.barrier);
     }
     this.draw();
   }
 
-  hit(dmg: number): boolean {
-    this.value = Math.min(60, this.value + 1);
+  get blocked(): boolean {
+    return this.barrierHp > 0;
+  }
+
+  /** gain = ค่าที่เพิ่มต่อนัด (ตามระดับทหาร) */
+  shoot(dmg: number, gain: number): void {
     this.pending += dmg;
     this.hitT = 0.06;
+    if (this.barrierHp > 0) {
+      this.barrierHp -= dmg;
+      if (this.barrierHp <= 0) {
+        this.barrierHp = 0;
+        this.barrier.visible = false;
+        this.justBroke = true;
+      }
+      return;
+    }
+    this.value = Math.min(400, this.value + gain);
+  }
+
+  hit(dmg: number): boolean {
+    this.shoot(dmg, 1);
     return false;
   }
 
@@ -477,7 +739,7 @@ export class StatGate extends Target {
     g.font = '800 72px Kanit, system-ui, sans-serif';
     g.lineWidth = 10;
     g.strokeStyle = good ? 'rgba(10,80,40,0.85)' : 'rgba(120,10,20,0.85)';
-    const txt = `${v > 0 ? '+' : ''}${v}%`;
+    const txt = `${v > 0 ? '+' : ''}${v}`;
     g.strokeText(txt, W / 2, 108);
     g.fillText(txt, W / 2, 108);
     this.tex.needsUpdate = true;

@@ -190,7 +190,12 @@ export class UI {
         <div class="chip gold">${ico('coin')} <b data-hcoins>0</b></div>
         <div class="chip">${ico('troop')} <b data-htroops>1/8</b></div>
       </div>
-      <div class="hud-stats" data-hstats></div>`,
+      <div class="hud-stats" data-hstats></div>
+      <div class="gauge" data-gauge>
+        <div class="g-ic">${ico('troop')}</div>
+        <div class="g-bar"><i data-gfill></i></div>
+        <div class="g-n" data-gn>+1</div>
+      </div>`,
     );
     root.append(this.hud);
 
@@ -428,7 +433,40 @@ export class UI {
     this.pauseModal.classList.toggle('hidden', !on);
   }
 
-  makeLabel(kind: 'enemy' | 'hp' | 'tier'): HTMLElement {
+  private gaugeKey = '';
+
+  /** เกจด้านซ้าย: frac 0–1, n = ทหารที่ได้เมื่อเต็ม */
+  setGauge(frac: number, n: number): void {
+    const key = `${Math.round(frac * 100)}|${n}`;
+    if (key === this.gaugeKey) return;
+    this.gaugeKey = key;
+    this.q(this.hud, '[data-gfill]').style.height = `${Math.round(frac * 100)}%`;
+    this.q(this.hud, '[data-gn]').textContent = `+${n}`;
+  }
+
+  pulseGauge(): void {
+    const g = this.q(this.hud, '[data-gauge]');
+    g.classList.remove('pulse');
+    void g.offsetWidth;
+    g.classList.add('pulse');
+  }
+
+  /** ป้าย Level เหนือแท่นทหาร พร้อมแถบความคืบหน้า */
+  setPadLabel(l: HTMLElement, level: number, frac: number, max: boolean, x: number, y: number, vis: boolean): void {
+    if (!vis) {
+      if (l.style.display !== 'none') l.style.display = 'none';
+      return;
+    }
+    if (l.style.display === 'none') l.style.display = '';
+    const key = `${level}|${Math.round(frac * 50)}|${max}`;
+    if (l.dataset.k !== key) {
+      l.dataset.k = key;
+      l.innerHTML = `<i style="width:${Math.round(frac * 100)}%"></i><span>${max ? `Level ${level} MAX` : `Level ${level}`}</span>`;
+    }
+    l.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -100%)`;
+  }
+
+  makeLabel(kind: 'enemy' | 'hp' | 'tier' | 'pad'): HTMLElement {
     const l = el('div', kind === 'hp' ? 'label hpl' : `label ${kind}`);
     l.style.display = 'none';
     this.labels.append(l);
@@ -695,8 +733,10 @@ export class UI {
         ${row('vibration', `${ico('vibration')} การสั่น`, s.vibration)}
         <div class="howto">
           <b>วิธีเล่น</b><br>
-          ลากนิ้วซ้าย–ขวา ทหารจะยิงเอง • ยิงสิ่งกีดขวางให้แตกก่อนชน • ยิงป้าย (อัตรายิง/ระยะ/พลัง) ให้เป็นสีเขียวแล้ววิ่งผ่าน •
-          ยิงกรงเพื่อช่วยเพื่อน • ยิงแคปซูลบนแท่นแล้ววิ่งผ่านเพื่อรับทหารระดับสูง • วิ่งเก็บกองเงิน • ท้ายด่านยิงคริสตัลเก็บเหรียญ •
+          ลากนิ้วซ้าย–ขวา ทหารจะยิงเอง • ยิงสิ่งกีดขวางให้แตกก่อนชน (ชั้นนอกแตกแล้วยังมีแกนข้างใน) •
+          ยิงแผงไม้หน้าป้ายให้พัง แล้วยิงป้าย (อัตรายิง/ระยะ/พลัง) ให้ค่าขึ้นเป็นสีเขียว แล้ววิ่งผ่าน •
+          ยิงแท่นทหารให้ Level ขึ้น แล้วยิงแคปซูลให้แตก ทหารจะไปรอที่ Collect Area ต้องวิ่งผ่านถึงจะได้ •
+          ทำลายของเพื่อเติมเกจด้านซ้าย เต็มแล้วได้ทหารเพิ่ม • ยิงกรงให้เงินหล่น แล้ววิ่งเก็บ • ท้ายด่านยิงหอคอยเก็บเงิน •
           ทุก 5 ด่านสู้ราชันแห่งยุค เคลียร์แล้วขึ้นยุคใหม่ (อัปเกรดรีเซ็ต ทหารเหลือ 1 คน) • ใช้ดาวซื้ออัปเกรดถาวรที่ค่ายฝึก
         </div>
         <div class="note">ไม่มีโฆษณา • เล่นออฟไลน์ได้ • Stamina +1 ทุก 5 นาที (สูงสุด ${STAMINA_MAX})</div>

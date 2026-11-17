@@ -26,6 +26,7 @@ import {
 } from '../config.ts';
 import {
   capacity,
+  gaugeTroops,
   incomeMult,
   loseReward,
   META,
@@ -38,7 +39,7 @@ import {
   type MetaId,
   type UpgradeId,
 } from '../economy.ts';
-import { ENEMY_COLOR, ERAS, eraIndexForLevel, eraOrdinal, TIER_COLORS, timelineForLevel, type EraDef } from '../eras.ts';
+import { ENEMY_COLOR, ERAS, eraIndexForLevel, eraOrdinal, TIER_COLORS, tierLook, timelineForLevel, type EraDef } from '../eras.ts';
 import { sfx, setMusic, setSound, suspendAudio, resumeAudio } from '../audio.ts';
 import { buzz, exitApp, setVibration } from '../platform.ts';
 import { clearSave, defaultSave, loadSave, writeSave, type SaveData } from '../save.ts';
@@ -51,8 +52,10 @@ import { Projectiles } from '../render/projectiles.ts';
 import {
   BlockTarget,
   CageTarget,
+  CapsuleTarget,
   CashStack,
   CrystalTarget,
+  PadBody,
   RecruitPad,
   StatGate,
   type Target,
@@ -133,6 +136,10 @@ export class Game {
   private rangeMul = 1;
   private powMul = 1;
   private collected = 0;
+  /** เกจด้านซ้าย: เต็มแล้วได้ทหารเพิ่ม */
+  private gauge = 0;
+  private gaugeGain = 1;
+  private gaugeN = 1;
 
   private t = 0;
   private dist = 0;
@@ -285,22 +292,27 @@ export class Game {
           break;
         }
         case 'cage': {
-          const c = new CageTarget(era, it.x, z, it.hp, it.prisoners);
+          const c = new CageTarget(era, it.x, z, it.hp, it.prisoners, it.cash);
           this.cages.push(c);
           this.addTarget(c);
           break;
         }
         case 'stat': {
-          const g = new StatGate(it.x, z, it.kind, it.value);
+          const g = new StatGate(it.x, z, it.kind, it.value, it.barrier);
           this.gates.push(g);
           this.addTarget(g);
           break;
         }
         case 'recruit': {
-          const p = new RecruitPad(era, it.x, z, it.capsules, it.capsuleHp, it.tier);
+          const p = new RecruitPad(era, it.x, z, it.capsules, it.capsuleHp, it.levelHp, it.maxLevel, {
+            x: it.collectX,
+            z: -it.collectD,
+            w: it.collectW,
+          });
           this.pads.push(p);
           this.scene.add(p.group);
           for (const c of p.capsules) this.targets.push(c);
+          this.targets.push(p.body);
           break;
         }
         case 'crystal': {
@@ -345,7 +357,8 @@ export class Game {
     if (this.swarmEra !== era || !this.swarms.length) {
       for (const sw of this.swarms) sw.dispose();
       this.projectiles?.dispose();
-      this.swarms = TIER_COLORS.map((c) => new UnitSwarm(era, c, 120));
+      // ทหารระดับสูงหน้าตาเป็นทหารยุคถัดไป
+      this.swarms = TIER_COLORS.map((c, i) => new UnitSwarm(tierLook(era, i + 1), c, 120));
       this.projectiles = new Projectiles(era);
       for (const sw of this.swarms) this.scene.add(sw.mesh);
       this.scene.add(this.projectiles.mesh);
@@ -357,6 +370,9 @@ export class Game {
     this.rateMul = this.rangeMul = this.powMul = 1;
     this.collected = 0;
     this.starsGot = 0;
+    this.gauge = 0;
+    this.gaugeN = gaugeTroops(up.capacity);
+    this.gaugeGain = 1 + up.capacity * 0.08;
     this.dist = 0;
     this.speed = 0;
     this.t = 0;
@@ -530,6 +546,7 @@ export class Game {
       else if (this.state === 'won' || this.state === 'lost') this.updateEnd(dt);
       for (const h of this.hazards) if (Math.abs(h.z - this.squad.z) < 90) h.update(this.t, dt);
       for (const t of this.targets) if (Math.abs(t.z - this.squad.z) < 90) t.update(dt, this.t);
+      for (const p of this.pads) if (!p.collected) p.updateWalkers(dt);
       for (const c of this.cash) if (Math.abs(c.z - this.squad.z) < 90) c.update(this.t);
       this.squad.update(dt);
       this.particles.update(dt);
@@ -639,13 +656,53 @@ export class Game {
           u.alive = false;
           this.particles.burst(u.x, 0.6, u.z, ENEMY_COLOR, 6, 4);
           sfx.pop();
+          this.addGauge(0.05);
+          if (Math.random() < 0.35) this.spawnCash(u.x, u.z, Math.round(2 + this.level.hard * 0.6));
         }
         return true;
       }
     }
     if (best) {
-      if (best.hit(dmg)) this.onDestroyed(best);
-      else if (best.kind === 'stat') sfx.tick();
+      if (best instanceof StatGate) {
+        // ค่าเพิ่มตามระดับทหารที่ยิง (ไม่ขึ้นกับพลังโจมตี)
+        const gain = (3 * dmg) / Math.max(0.0001, this.baseDmg * this.powMul);
+        best.shoot(dmg, gain);
+        if (best.justBroke) {
+          best.justBroke = false;
+          this.particles.burst(best.x, 1.1, best.z + 0.4, 0x9a6440, 18, 6, 0.22, 0.9);
+          sfx.breakBlock();
+          this.addGauge(0.08);
+        } else sfx.tick();
+        return true;
+      }
+      if (best instanceof PadBody || best instanceof CapsuleTarget) {
+        const pad = best.pad;
+        if (pad.addProgress(dmg)) {
+          const q = this.project(pad.x, 3.2, pad.z);
+          this.ui.floatText(`Level ${pad.level}!`, q.x, q.y, true);
+          this.particles.burst(pad.x, 1.5, pad.z, 0x7fdcff, 16, 5, 0.12, 0.7);
+          sfx.gateGood();
+        }
+        if (best instanceof PadBody) {
+          best.hit(dmg);
+          return true;
+        }
+      }
+      const dead = best.hit(dmg);
+      if (best instanceof BlockTarget && best.justCracked) {
+        best.justCracked = false;
+        this.particles.burst(best.x, 1.2, best.z, 0x9a958c, 16, 6, 0.2, 0.9);
+        this.addGauge(0.08);
+        sfx.hit();
+      }
+      if (best instanceof CageTarget) {
+        // ปล่อยเงินทุกๆ 25% ของเลือด
+        while (best.drops < 4 && best.hp <= best.maxHp * (1 - (best.drops + 1) * 0.25)) {
+          best.drops++;
+          this.spawnCash(best.x + (Math.random() - 0.5) * 1.6, best.z + 1.6 + Math.random(), best.cashValue);
+        }
+      }
+      if (dead) this.onDestroyed(best);
       return true;
     }
     // บอส
@@ -677,7 +734,9 @@ export class Game {
       this.ui.coinPop(`+${t.coins}`, p.x, p.y);
       sfx.breakBlock();
       buzz('light');
+      this.addGauge(0.22);
     } else if (t instanceof CageTarget) {
+      this.addGauge(0.15);
       t.group.visible = false;
       this.particles.burst(t.x, 1, t.z, 0x4a4f5a, 18, 6, 0.16, 0.9);
       for (const s of t.prisonerSpots()) this.addTroop(1, s.x, s.z);
@@ -687,6 +746,7 @@ export class Game {
     } else if (t instanceof CrystalTarget) {
       t.group.visible = false;
       this.particles.burst(t.x, 1.4, t.z, t.color, 22, 7, 0.2, 1.0);
+      this.particles.burst(t.x, 2.6, t.z, 0x3ea85a, 10, 6, 0.18, 0.9);
       this.collected += t.coins;
       this.ui.coinPop(`+${t.coins}`, p.x, p.y);
       if (t.star) {
@@ -696,8 +756,9 @@ export class Game {
         sfx.join();
       }
       sfx.breakBlock();
-    } else if (t.kind === 'capsule') {
-      (t as unknown as { shatter(): void }).shatter();
+    } else if (t instanceof CapsuleTarget) {
+      t.shatter();
+      t.pad.release(t);
       this.particles.burst(t.x, 1, t.z, 0xcff6ff, 14, 5, 0.12, 0.7);
       sfx.breakBlock();
     }
@@ -714,6 +775,29 @@ export class Game {
     this.collected += v;
     const p = this.project(wx, 1.5, wz);
     this.ui.coinPop(`เต็ม +${v}`, p.x, p.y);
+  }
+
+  /** เติมเกจด้านซ้าย เต็มแล้วได้ทหารเพิ่ม */
+  private addGauge(v: number): void {
+    if (this.state !== 'run') return;
+    this.gauge += v * this.gaugeGain;
+    while (this.gauge >= 1) {
+      this.gauge -= 1;
+      for (let k = 0; k < this.gaugeN; k++) {
+        this.addTroop(1, this.squad.x + (Math.random() - 0.5) * 1.5, this.squad.z + this.squad.radiusZ() + 0.6);
+      }
+      const p = this.project(this.squad.x, 2.4, this.squad.z);
+      this.ui.floatText(`+${this.gaugeN} ทหาร`, p.x, p.y, true);
+      this.ui.pulseGauge();
+      sfx.join();
+      buzz('medium');
+    }
+  }
+
+  private spawnCash(x: number, z: number, value: number): void {
+    const c = new CashStack(this.clampX(x), z, value);
+    this.scene.add(c.group);
+    this.cash.push(c);
   }
 
   private checkCash(): void {
@@ -786,12 +870,11 @@ export class Game {
       g.label?.remove();
       if (Math.abs(this.squad.x - g.x) > 2.05) continue;
       const v = Math.round(g.value);
-      const k = Math.max(0.3, 1 + v / 100);
-      if (g.stat === 'rate') this.rateMul = Math.max(0.3, this.rateMul * k);
-      else if (g.stat === 'range') this.rangeMul = Math.max(0.4, this.rangeMul * k);
-      else this.powMul = Math.max(0.3, this.powMul * k);
+      if (g.stat === 'rate') this.rateMul = Math.max(0.4, this.rateMul * (1 + v / 150));
+      else if (g.stat === 'range') this.rangeMul = Math.max(0.45, this.rangeMul * (1 + v / 150));
+      else this.powMul = Math.max(0.4, this.powMul * (1 + v / 200));
       const p = this.project(this.squad.x, 2.4, this.squad.z);
-      this.ui.floatText(`${STAT_LABEL[g.stat]} ${v >= 0 ? '+' : ''}${v}%`, p.x, p.y, v >= 0);
+      this.ui.floatText(`${STAT_LABEL[g.stat]} ${v >= 0 ? '+' : ''}${v}`, p.x, p.y, v >= 0);
       if (v >= 0) {
         sfx.gateGood();
         this.particles.burst(this.squad.x, 1, this.squad.z, 0x7dffb0, 14, 5, 0.12);
@@ -804,24 +887,25 @@ export class Game {
   }
 
   private checkPads(): void {
-    const r = this.squad.radiusX();
+    const rx = this.squad.radiusX();
     for (const p of this.pads) {
-      if (p.collected || this.squad.z > p.z) continue;
+      if (p.collected) continue;
+      // ถึง Collect Area แล้ว
+      if (this.squad.z - this.squad.radiusZ() * 0.5 > p.collectZ) continue;
       p.collected = true;
-      if (Math.abs(this.squad.x - p.x) > 1.6 + r * 0.5) continue;
-      let got = 0;
-      for (const c of p.capsules) {
-        if (c.alive) continue;
-        c.unit.visible = false;
-        this.addTroop(p.tier, c.x, c.z);
-        got++;
-      }
-      if (got) {
-        const pp = this.project(p.x, 2, p.z);
-        this.ui.floatText(`+${got} ทหาร Lv.${p.tier}`, pp.x, pp.y, true);
+      const inArea = Math.abs(this.squad.x - p.collectX) < p.collectHalfW + rx * 0.6;
+      if (inArea && p.walkers.length) {
+        let best = 1;
+        for (const w of p.walkers) {
+          this.addTroop(w.tier, w.x, w.z);
+          best = Math.max(best, w.tier);
+        }
+        const q = this.project(p.collectX, 2, p.collectZ);
+        this.ui.floatText(`+${p.walkers.length} ทหาร Lv.${best}`, q.x, q.y, true);
         sfx.join();
         buzz('medium');
       }
+      p.clearWalkers();
     }
   }
 
@@ -840,8 +924,9 @@ export class Game {
         const dx = this.squad.x - u.x;
         const dz = this.squad.z - u.z;
         const d = Math.hypot(dx, dz) || 1;
-        u.x += (dx / d) * 3.6 * dt;
-        u.z += (dz / d) * 3.6 * dt;
+        // ศัตรูเดินเข้ามาช้าๆ (ให้มีเวลายิง)
+        u.x += (dx / d) * 1.6 * dt;
+        u.z += (dz / d) * 1.6 * dt;
         if (u.z > this.squad.z + 4) u.alive = false;
         // ชนขอบฝูง (วงรี)
         const inside = (dx / (rx + 0.1)) ** 2 + (dz / (rz + 0.1)) ** 2 < 1;
@@ -1129,6 +1214,7 @@ export class Game {
   }
 
   private updateHud(): void {
+    this.ui.setGauge(this.gauge, this.gaugeN);
     this.ui.setHudStats({
       coins: this.collected,
       troops: this.squad.count,
@@ -1155,19 +1241,21 @@ export class Game {
         if (p.label) p.label.style.display = 'none';
         continue;
       }
-      p.label ??= this.ui.makeLabel('tier');
-      const q = this.project(p.x, 3.0, p.z);
-      this.ui.setLabelText(p.label, `ทหาร Lv.${p.tier}`, q.x, q.y, q.vis);
+      p.label ??= this.ui.makeLabel('pad');
+      const q = this.project(p.x, 3.15, p.z);
+      this.ui.setPadLabel(p.label, p.level, p.levelFrac(), p.level >= p.maxLevel, q.x, q.y, q.vis && p.z < sz - 1);
     }
     for (const t of this.targets) {
-      const showable = t.kind !== 'stat' && t.alive && t.z < sz + 1 && t.z > sz - 45 && this.state !== 'menu';
+      const isGate = t instanceof StatGate;
+      const showable =
+        t.kind !== 'pad' && t.alive && (!isGate || t.blocked) && t.z < sz + 1 && t.z > sz - 45 && this.state !== 'menu';
       if (!showable) {
         if (t.label) t.label.style.display = 'none';
       } else {
         t.label ??= this.ui.makeLabel('hp');
-        const y = t.kind === 'crystal' ? 3.0 : t.kind === 'capsule' ? 2.1 : 2.35;
+        const y = t.kind === 'crystal' ? 3.3 : t.kind === 'capsule' ? 2.3 : isGate ? 3.4 : 2.35;
         const p = this.project(t.x, y, t.z);
-        this.ui.setLabel(t.label, Math.ceil(t.hp), p.x, p.y, p.vis);
+        this.ui.setLabel(t.label, Math.ceil(isGate ? t.barrierHp : t.hp), p.x, p.y, p.vis);
       }
       if (t.pending > 0) {
         t.pendT += dt;

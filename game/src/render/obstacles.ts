@@ -201,8 +201,58 @@ class Spinner implements Obstacle {
   }
 }
 
+const PLATE = new MeshLambertMaterial({ color: 0x6b7280 });
+const FLAME = new MeshLambertMaterial({ color: 0xff5a2e, emissive: 0xc0300a });
+const FLAME2 = new MeshLambertMaterial({ color: 0xffc23d, emissive: 0xb07000 });
+
+/** แผ่นไฟ: พ่นไฟเป็นจังหวะ ทหารที่อยู่บนแผ่นตอนไฟลุกจะตาย */
+class FirePlate implements Obstacle {
+  readonly group = new Group();
+  readonly z: number;
+  private readonly x: number;
+  private readonly half: number;
+  private readonly sec: ObstacleSection;
+  private readonly flames: Mesh[] = [];
+  private on = false;
+
+  constructor(sec: ObstacleSection) {
+    this.sec = sec;
+    this.z = -sec.d;
+    this.x = sec.param;
+    this.half = sec.width / 2;
+    this.group.position.set(this.x, 0, this.z);
+    const plate = new Mesh(new BoxGeometry(sec.width, 0.12, 1.3), PLATE);
+    plate.position.y = 0.06;
+    this.group.add(plate);
+    const n = Math.max(3, Math.round(sec.width / 0.8));
+    for (let i = 0; i < n; i++) {
+      const x = -this.half + 0.4 + (i * (sec.width - 0.8)) / (n - 1);
+      const f = new Mesh(new ConeGeometry(0.32, 1.1, 7), i % 2 ? FLAME2 : FLAME);
+      f.position.set(x, 0.6, 0);
+      this.group.add(f);
+      this.flames.push(f);
+    }
+  }
+
+  update(t: number): void {
+    const s = Math.sin(t * this.sec.speed * 2.2 + this.sec.phase);
+    this.on = s > -0.2;
+    const k = this.on ? 0.75 + Math.abs(Math.sin(t * 18)) * 0.35 : 0.08;
+    this.flames.forEach((f, i) => {
+      f.scale.set(1, k * (1 + (i % 2) * 0.25), 1);
+      f.position.y = 0.12 + 0.55 * k;
+    });
+  }
+
+  hits(x: number, z: number): boolean {
+    return this.on && Math.abs(x - this.x) < this.half + 0.1 && Math.abs(z - this.z) < 0.7;
+  }
+}
+
 export function createObstacle(sec: ObstacleSection): Obstacle {
   switch (sec.kind) {
+    case 'fire':
+      return new FirePlate(sec);
     case 'saw':
       return new Saw(sec);
     case 'wall':

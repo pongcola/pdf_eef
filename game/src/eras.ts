@@ -86,3 +86,8 @@ export function levelInEra(level: number): number {
 export function isEraBossLevel(level: number): boolean {
   return level % LEVELS_PER_ERA === 0;
 }
+
+/** ทหารระดับสูงหน้าตาเป็นทหารของยุคถัดๆ ไป (เหมือนวิวัฒนาการ) */
+export function tierLook(era: number, tier: number): number {
+  return Math.min(ERAS.length - 1, era + tier - 1);
+}

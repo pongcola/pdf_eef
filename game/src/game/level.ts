@@ -1,8 +1,8 @@
-import { BASE_FIRE_RATE, LANE_X, MAX_TIER, TIER_DAMAGE } from '../config.ts';
+import { BASE_FIRE_RATE, LANE_X, MAX_TIER, TIER_DAMAGE, TRACK_WIDTH } from '../config.ts';
 import { eraIndexForLevel, eraOrdinal, isEraBossLevel, levelInEra, timelineForLevel } from '../eras.ts';
 import { makeRng, pick } from '../rng.ts';
 
-export type ObstacleKind = 'saw' | 'wall' | 'hammer' | 'spinner';
+export type ObstacleKind = 'saw' | 'wall' | 'hammer' | 'spinner' | 'fire';
 export type StatKind = 'rate' | 'range' | 'power';
 
 /** กับดักที่ทำลายไม่ได้ (ใบเลื่อย ค้อน คานหมุน) */
@@ -32,6 +32,8 @@ export interface StatItem {
   x: number;
   kind: StatKind;
   value: number;
+  /** เลือดแผงไม้กั้นด้านหน้า (0 = ไม่มี) */
+  barrier: number;
 }
 
 /** กรงเชลย: ยิงแตกแล้วได้ทหารเพิ่ม */
@@ -41,6 +43,8 @@ export interface CageItem {
   x: number;
   hp: number;
   prisoners: number;
+  /** มูลค่าเงินที่หล่นทุกครั้ง (4 ครั้งระหว่างโดนยิง) */
+  cash: number;
 }
 
 /** แท่นทหาร (Collect Area): ยิงแคปซูลให้แตก แล้ววิ่งผ่านแท่นเพื่อรับทหารระดับ tier */
@@ -50,7 +54,13 @@ export interface RecruitItem {
   x: number;
   capsules: number;
   capsuleHp: number;
-  tier: number;
+  /** ดาเมจที่ต้องใช้อัปเลเวลแรก (เลเวลต่อไป ×1.6) */
+  levelHp: number;
+  maxLevel: number;
+  /** Collect Area ข้างหน้า */
+  collectD: number;
+  collectX: number;
+  collectW: number;
 }
 
 /** กองเงินบนถนน: วิ่งผ่านเพื่อเก็บ */
@@ -191,15 +201,17 @@ export function generateLevel(level: number, player: PlayerStats): LevelData {
         const side = rng() < 0.5 ? -1 : 1;
         const kinds: StatKind[] = ['rate', 'range', 'power'];
         const kind = pick(rng, kinds);
-        const value = -Math.min(40, Math.round(2 + rng() * 5 + hard * 0.6));
-        items.push({ type: 'stat', d, x: side * 2.5, kind, value });
+        // ค่าเริ่ม: ส่วนใหญ่ติดลบ (ต้องยิงให้เป็นบวก) บางป้ายเริ่มบวก
+        const startVal = () => (rng() < 0.3 ? Math.round(10 + rng() * 30) : -Math.min(60, Math.round(8 + rng() * 15 + hard * 1.5)));
+        const barrier = () => (i === 0 && hard <= 2 ? 0 : hpOf(0.45));
+        items.push({ type: 'stat', d, x: side * 2.5, kind, value: startVal(), barrier: barrier() });
         const other = rng();
         if (other < 0.45 && !(hard <= 3 && i === 0)) {
           const hp = hpOf(tBreak);
           items.push({ type: 'block', d, x: -side * LANE_X, hp, coins: blockCoins(hp) });
         } else if (other < 0.8) {
           const k2 = pick(rng, kinds.filter((k) => k !== kind));
-          items.push({ type: 'stat', d, x: -side * 2.5, kind: k2, value: -Math.min(40, Math.round(3 + rng() * 6 + hard * 0.6)) });
+          items.push({ type: 'stat', d, x: -side * 2.5, kind: k2, value: startVal(), barrier: barrier() });
         }
         // ผู้เล่นทั่วไปยิงป้ายได้ราว +12%
         if (kind === 'rate') rateMul *= 1.12;
@@ -209,14 +221,27 @@ export function generateLevel(level: number, player: PlayerStats): LevelData {
       case 'cage': {
         const prisoners = Math.min(7, 1 + Math.floor(rng() * 2) + Math.floor(hard / 5));
         // กรงต้องยิงแตกได้ ไม่งั้นฝูงไม่โต
-        items.push({ type: 'cage', d, x: pick(rng, LANES), hp: hpOf(tBreak * 0.75), prisoners });
+        items.push({ type: 'cage', d, x: pick(rng, LANES), hp: hpOf(tBreak * 0.75), prisoners, cash: Math.round(2 + hard * 0.8) });
         troops = Math.min(capRef, troops + prisoners * 0.45);
         break;
       }
       case 'recruit': {
         const side = rng() < 0.5 ? -1 : 1;
-        const tier = Math.min(MAX_TIER, 2 + Math.floor(inEra / 2) + (rng() < 0.25 ? 1 : 0));
-        items.push({ type: 'recruit', d, x: side * LANE_X, capsules: 2, capsuleHp: hpOf(0.4), tier });
+        const maxLevel = Math.min(MAX_TIER, 3 + Math.floor(inEra / 2));
+        const tier = Math.min(maxLevel, 2);
+        const collectW = TRACK_WIDTH * (rng() < 0.5 ? 0.5 : 0.62);
+        items.push({
+          type: 'recruit',
+          d,
+          x: side * (LANE_X - 0.3),
+          capsules: rng() < 0.35 ? 3 : 2,
+          capsuleHp: hpOf(0.55),
+          levelHp: hpOf(0.35),
+          maxLevel,
+          collectD: d + 12,
+          collectX: side * (TRACK_WIDTH / 2 - collectW / 2),
+          collectW,
+        });
         troops = Math.min(capRef, troops + 0.7);
         // ทหารระดับสูงเพิ่มดาเมจเหมือนมีทหารเพิ่มหลายตัว (คิดแบบระมัดระวัง)
         bonusUnits += 0.7 * (TIER_DAMAGE[tier - 1] - 1) * 0.6;
@@ -230,15 +255,15 @@ export function generateLevel(level: number, player: PlayerStats): LevelData {
         break;
       }
       case 'hazard': {
-        const kind = pick(rng, ['saw', 'hammer', 'spinner'] as const);
+        const kind = pick(rng, ['saw', 'hammer', 'spinner', 'fire', 'fire'] as const);
         items.push({
           type: 'obstacle',
           d,
           kind,
           speed: (1.1 + rng() * 0.8) * (1 + Math.min(0.5, hard * 0.02)),
           phase: rng() * Math.PI * 2,
-          param: rng() < 0.5 ? -1 : 1,
-          width: 0,
+          param: kind === 'fire' ? pick(rng, LANES) : rng() < 0.5 ? -1 : 1,
+          width: kind === 'fire' ? 3.2 : 0,
         });
         troops = Math.max(1, troops * 0.92);
         break;
