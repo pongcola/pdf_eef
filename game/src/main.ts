@@ -52,6 +52,9 @@ async function boot(): Promise<void> {
   const loop = (now: number) => {
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
+    // ทดสอบอัตโนมัติ: เร่งเวลาได้ด้วย window.__steps
+    const steps = (window as unknown as { __steps?: number }).__steps ?? 1;
+    for (let k = 1; k < steps; k++) game!.update(dt, false);
     game!.update(dt);
     requestAnimationFrame(loop);
   };

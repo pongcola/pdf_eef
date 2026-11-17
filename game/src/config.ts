@@ -12,11 +12,13 @@ export const TRACK_WIDTH = 10;
 /** ตำแหน่งกลางเลนซ้าย/ขวา */
 export const LANE_X = 3.2;
 /** ความเร็ววิ่ง (หน่วย/วินาที) */
-export const RUN_SPEED = 7;
+export const RUN_SPEED = 5;
 /** ระยะห่างระหว่างทหารในฝูง */
 export const UNIT_SPACING = 0.42;
-/** จำนวนด่านต่อ 1 ยุค (ด่านสุดท้ายของยุคเป็นบอส/ปราสาท) */
-export const LEVELS_PER_ERA = 5;
+/** 1 ด่าน = 1 ยุค (วิ่งรอบเดียว: สเตจ 1–3 แล้วทุ่งหอคอย) */
+export const LEVELS_PER_ERA = 1;
+/** สเตจต่อยุค: 1–3 ช่วงวิ่ง, สเตจสุดท้ายเป็นทุ่งหอคอย */
+export const STAGES_PER_ERA = 4;
 /** จำนวนยุคต่อ 1 ไทม์ไลน์ (ครบแล้วเริ่มไทม์ไลน์ใหม่ที่ยากขึ้น) */
 export const ERAS_PER_TIMELINE = 6;
 export const LEVELS_PER_TIMELINE = LEVELS_PER_ERA * ERAS_PER_TIMELINE;
@@ -30,7 +32,7 @@ export const ERA_START_COINS = 100;
 export const COINS_PER_STAR = 400;
 
 /** การยิง */
-export const BASE_FIRE_RATE = 1.3; // นัด/วินาที ต่อทหาร 1 ตัว
+export const BASE_FIRE_RATE = 1; // นัด/วินาที ต่อทหาร 1 ตัว
 /** อัตรายิงที่ใช้ตั้งสมดุลเดิม (ใช้ชดเชยค่าที่คิดเป็น "ต่อนัด") */
 export const FIRE_RATE_REF = 2.2;
 export const FIRE_RATE_SCALE = BASE_FIRE_RATE / FIRE_RATE_REF;
@@ -45,4 +47,6 @@ export const BOSS_STOMP_INTERVAL = 1.7;
 export const BOSS_STOMP_KILL = 0.1;
 
 /** โอกาสที่วงล้อคูณรางวัลจะโผล่หลังชนะ (0–1) */
+/** ค่าสูงสุดของป้ายสถานะ (+50 = เพิ่ม 25%) */
+export const STAT_GATE_MAX = 50;
 export const WHEEL_CHANCE = 0.4;

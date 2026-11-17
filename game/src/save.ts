@@ -1,9 +1,9 @@
-import { ERA_START_COINS, LEVELS_PER_TIMELINE, STAMINA_MAX } from './config.ts';
+import { ERA_START_COINS, STAMINA_MAX } from './config.ts';
 import type { StaminaState } from './stamina.ts';
 import type { MetaLevels, UpgradeId } from './economy.ts';
 
 export interface SaveData {
-  version: 3;
+  version: 4;
   /** เลขด่านรวม (1, 2, 3, …) — ยุคและไทม์ไลน์คำนวณจากเลขนี้ */
   level: number;
   /** เหรียญ (ใช้ในยุคปัจจุบัน รีเซ็ตเมื่อขึ้นยุคใหม่) */
@@ -27,7 +27,7 @@ const KEY = 'crowd-ages-save-v1';
 
 export function defaultSave(now: number): SaveData {
   return {
-    version: 3,
+    version: 4,
     level: 1,
     coins: ERA_START_COINS,
     stars: 0,
@@ -54,14 +54,18 @@ export function loadSave(now: number): SaveData {
     };
     if (data.version === 2) {
       // เวอร์ชัน 2 นับด่านเป็นรอบละ 30 ด่าน → แปลงเป็นเลขด่านรวม
-      const level = ((data.cycle ?? 1) - 1) * LEVELS_PER_TIMELINE + (data.level ?? 1);
+      const old = ((data.cycle ?? 1) - 1) * 30 + (data.level ?? 1);
+      const level = Math.floor((old - 1) / 5) + 1;
       return { ...base, ...keep, level, upgrades: { ...base.upgrades, ...(data.upgrades ?? {}) } };
     }
-    if (data.version !== 3) return { ...base, ...keep };
+    if (data.version !== 3 && data.version !== 4) return { ...base, ...keep };
+    // เวอร์ชัน 3: ยุคละ 5 ด่าน → เวอร์ชัน 4: 1 ด่าน = 1 ยุค
+    const level = data.version === 3 ? Math.floor(((data.level ?? 1) - 1) / 5) + 1 : (data.level ?? 1);
     return {
       ...base,
       ...data,
-      version: 3,
+      level,
+      version: 4,
       upgrades: { ...base.upgrades, ...(data.upgrades ?? {}) },
       meta: { ...base.meta, ...(data.meta ?? {}) },
       heroes: {

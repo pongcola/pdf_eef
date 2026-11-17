@@ -15,6 +15,7 @@ import {
   FIRE_RATE_SCALE,
   BASE_RANGE,
   BOSS_STOMP_INTERVAL,
+  STAGES_PER_ERA,
   BOSS_STOMP_KILL,
   COINS_PER_STAR,
   ERA_CLEAR_STAMINA,
@@ -117,6 +118,8 @@ interface EnemyGroup {
 }
 
 const BOSS_STOP = 10.5;
+/** ชนหอคอยแล้วทหารตายทีละตัว ทุกกี่วินาที */
+const TOWER_KILL_INTERVAL = 0.3;
 
 /** จำนวนครั้งที่ต้องยิงโดนก้อนหินเพื่อให้หลอดซ้ายเต็ม เมื่อแท่นมีแคปซูลเพิ่มมาแล้ว extra ช่อง */
 function gaugeHits(extra: number): number {
@@ -228,6 +231,8 @@ export class Game {
   private lastX = 0;
   private hintTimer = 0;
   private reachedCastle = false;
+  /** สเตจปัจจุบัน (0 = สเตจ 1) */
+  private stage = 0;
   private pendingReward = 0;
   private camPos = new Vector3(0, 8, 12);
   private camLook = new Vector3(0, 0, -6);
@@ -461,6 +466,7 @@ export class Game {
     this.shake = 0;
     this.bonusT = 0;
     this.reachedCastle = false;
+    this.stage = 0;
     this.snapCamera();
   }
 
@@ -618,7 +624,7 @@ export class Game {
 
   // ---------- ลูปหลัก ----------
 
-  update(dt: number): void {
+  update(dt: number, render = true): void {
     const running = this.state !== 'paused';
     if (running) {
       sharedTime.value += dt;
@@ -632,6 +638,7 @@ export class Game {
       this.squad.update(dt);
       this.particles.update(dt);
     }
+    if (!render) return;
     this.renderUnits();
     this.updateCamera(dt);
     this.updateLabels(dt);
@@ -654,7 +661,7 @@ export class Game {
     if (wall) {
       target = 0;
       this.ramT += dt;
-      if (this.ramT >= 0.25 && this.squad.count) {
+      if (this.ramT >= TOWER_KILL_INTERVAL && this.squad.count) {
         this.ramT = 0;
         const i = this.nearestTroop(wall.x, wall.z + wall.halfD);
         const tr = this.squad.troops[i];
@@ -688,22 +695,24 @@ export class Game {
       this.checkCash();
       this.updateEnemies(dt);
       if (this.squad.count === 0) return this.lose();
+      while (this.stage < L.stageD.length - 2 && this.dist >= L.stageD[this.stage + 1]) {
+        this.stage++;
+        this.ui.toast(`สเตจ ${this.stage + 1}/${STAGES_PER_ERA}`);
+      }
       if (this.dist >= L.finishD) {
-        if (L.eraBoss) this.startBoss();
-        else this.startBonus();
+        this.stage = STAGES_PER_ERA - 1;
+        this.startBonus();
       }
     } else if (this.state === 'bonus') {
       this.bonusT += dt;
-      // ทหารหมดในทุ่งหอคอยก็ถือว่าผ่านด่าน (ข้ามเส้นชัยมาแล้ว) — ไม่จำกัดเวลา
+      // ทุ่งหอคอย: ไปถึงแถวสุดท้าย = ผ่านยุค, ทหารหมดก่อน = ไม่ผ่าน (ไม่จำกัดเวลา)
       this.checkCash();
       if (this.squad.count === 0) {
-        this.win();
-      } else if (this.dist >= L.endD - 3) {
+        this.lose();
+      } else if (this.dist >= L.endD - 1) {
         this.reachedCastle = true;
-        const bonus = Math.round(40 * L.hard);
-        this.collected += bonus;
         const p = this.project(0, 4, -L.endD);
-        this.ui.floatText(`ทะลวงปราสาท! +${bonus}`, p.x, p.y, true);
+        this.ui.floatText(`ผ่านยุค!`, p.x, p.y, true);
         this.win();
       }
     } else {
@@ -878,12 +887,7 @@ export class Game {
       this.squad.add(tier, wx, wz);
       return;
     }
-    if (tier > 1 && this.squad.promote(tier)) return;
-    // ฝูงเต็ม: แปลงเป็นเหรียญ
-    const v = 3 * tier;
-    this.collected += v;
-    const p = this.project(wx, 1.5, wz);
-    this.ui.coinPop(`เต็ม +${v}`, p.x, p.y);
+    // ฝูงเต็ม (20): ไม่เกิดผลอะไร
   }
 
   /** แท่นแคปซูลข้างหน้าที่ยังไม่ได้ผ่าน */
@@ -1029,8 +1033,8 @@ export class Game {
       g.label?.remove();
       if (Math.abs(this.squad.x - g.x) > 2.05) continue;
       const v = Math.round(g.value);
-      if (g.stat === 'rate') this.rateMul = Math.max(0.4, this.rateMul * (1 + v / 150));
-      else if (g.stat === 'range') this.rangeMul = Math.max(0.45, this.rangeMul * (1 + v / 150));
+      if (g.stat === 'rate') this.rateMul = Math.max(0.4, this.rateMul * (1 + v / 200));
+      else if (g.stat === 'range') this.rangeMul = Math.max(0.45, this.rangeMul * (1 + v / 200));
       else this.powMul = Math.max(0.4, this.powMul * (1 + v / 200));
       const p = this.project(this.squad.x, 2.4, this.squad.z);
       this.ui.floatText(`${STAT_LABEL[g.stat]} ${v >= 0 ? '+' : ''}${v}`, p.x, p.y, v >= 0);
@@ -1089,10 +1093,9 @@ export class Game {
           u.cool = (2.0 + Math.random() * 1.2) * (this.level.hard < 8 ? 1.3 : 1);
           this.throwAt(u);
         }
-        // ถ้าวิ่งชนตัวศัตรู: ตายทั้งคู่
+        // วิ่งชนศัตรู: ศัตรูล้ม ทหารเราไม่ตาย (ตายได้แค่จากอาวุธที่ปา)
         const inside = (dx / (rx + 0.1)) ** 2 + (dz / (rz + 0.1)) ** 2 < 1;
         if (inside && this.squad.count) {
-          this.killTroop(this.nearestTroop(u.x, u.z), 'enemy');
           u.alive = false;
           this.particles.burst(u.x, 0.6, u.z, ENEMY_COLOR, 6, 4);
         }
@@ -1439,18 +1442,8 @@ export class Game {
   private startBonus(): void {
     this.state = 'bonus';
     this.ui.showHint(false);
-    this.ui.toast('ทุ่งสมบัติ! ยิงคริสตัลเก็บเหรียญ 💎');
+    this.ui.toast(`สเตจ ${STAGES_PER_ERA}/${STAGES_PER_ERA} ทุ่งหอคอย! ยิงทะลวงให้ถึงแถวสุดท้าย`);
     sfx.gateGood();
-  }
-
-  private startBoss(): void {
-    this.state = 'boss';
-    this.bossHp = this.level.bossHp;
-    this.stompTimer = -1;
-    this.bossTime = 0;
-    this.squad.targetX = 0;
-    this.ui.showHint(false);
-    this.ui.showBossBar(true);
   }
 
   private updateBoss(dt: number): void {
@@ -1526,16 +1519,16 @@ export class Game {
     let trophies = 0;
     let eraClear: EraClear | null = null;
     if (win) {
-      reward = winReward(L.inEra, L.eraOrd, this.collected, L.eraBoss);
+      reward = winReward(L.eraOrd, this.collected);
       stars = 1 + this.starsGot;
-      trophies = L.eraBoss ? 3 : 1;
+      trophies = 3;
       this.save.coins += reward;
       this.save.stars += stars;
       this.save.trophies += trophies;
       this.save.level = L.level + 1;
       this.save.failStreak = 0;
-      if (L.eraBoss) {
-        // เคลียร์ยุค: ได้ stamina (เกินหลอดได้) + ดาว, เหรียญที่เหลือแลกเป็นดาว
+      {
+        // ผ่านยุค: ได้ stamina (เกินหลอดได้) + ดาว, เหรียญที่เหลือแลกเป็นดาว
         // แล้วรีเซ็ต: อัปเกรดกลับ Lv.1 ทหารเริ่มใหม่ 1 ตัว (บวกค่ายฝึก)
         const converted = Math.floor(this.save.coins / COINS_PER_STAR);
         this.save.stars += ERA_CLEAR_STARS + converted;
@@ -1557,7 +1550,9 @@ export class Game {
       }
     } else {
       reward = loseReward(this.collected);
+      stars = this.starsGot;
       this.save.coins += reward;
+      this.save.stars += stars;
       this.save.failStreak++;
     }
     this.pendingReward = eraClear ? 0 : reward;
@@ -1576,8 +1571,9 @@ export class Game {
       survivors: this.squad.count,
       eraClear,
       castle: this.reachedCastle,
-      // วงล้อโผล่แบบสุ่ม (ไม่ใช้ตอนจบยุค เพราะเหรียญถูกแลกเป็นดาวแล้ว)
-      wheel: win && !eraClear && Math.random() < WHEEL_CHANCE,
+      // วงล้อโผล่แบบสุ่มหลังรอบที่ไม่ผ่าน (ตอนผ่านยุคเหรียญถูกแลกเป็นดาวแล้ว)
+      wheel: !eraClear && reward > 0 && Math.random() < WHEEL_CHANCE,
+      stage: this.stage + 1,
       income: incomeMult(up.economy),
       save: this.save,
     });
@@ -1700,6 +1696,7 @@ export class Game {
   }
 
   private updateHud(): void {
+    this.ui.setStage(this.stage + 1);
     this.ui.setGauge(this.gauge, this.gaugePad?.capsules.length ?? 0, this.gaugeMaxed);
     this.ui.setHudStats({
       coins: this.collected,

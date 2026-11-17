@@ -1,4 +1,4 @@
-import { LEVELS_PER_ERA, STAMINA_MAX, STAMINA_RUN_COST } from '../config.ts';
+import { STAGES_PER_ERA, STAMINA_MAX, STAMINA_RUN_COST } from '../config.ts';
 import type { MetaId, UpgradeId } from '../economy.ts';
 import type { EraDef } from '../eras.ts';
 import { applySkins, artUrl, ico } from './art.ts';
@@ -82,6 +82,8 @@ export interface ResultData {
   survivors: number;
   eraClear: EraClearInfo | null;
   castle: boolean;
+  /** สเตจที่ไปถึง (1–4) */
+  stage: number;
   wheel: boolean;
   income: number;
   save: SaveData;
@@ -198,7 +200,7 @@ export class UI {
       'hud hidden',
       `
       <div class="hud-top">
-        <div class="lvl-chip" data-hudlvl>ด่าน 1</div>
+        <div class="lvl-chip" data-hudlvl>ยุค 1</div>
         <div class="progress"><div class="bar" data-prog></div><span class="boss-ic" data-bossic></span></div>
         <button class="icon-btn" data-act="pause" aria-label="หยุด">${ico('pause')}</button>
       </div>
@@ -406,12 +408,12 @@ export class UI {
     this.q(this.menu, '[data-stars]').textContent = fmt(d.save.stars);
     this.q(this.menu, '[data-tl]').textContent = `ไทม์ไลน์ ${d.timeline}`;
     this.q(this.menu, '[data-era]').innerHTML = `${ico(`era_${d.era.id}`)} ${d.era.nameTh} <small>${d.era.nameEn}</small>`;
-    const inEra = ((d.save.level - 1) % LEVELS_PER_ERA) + 1;
+    // สเตจในยุค: 1–3 ช่วงวิ่ง, สเตจสุดท้ายทุ่งหอคอย
     const dots = this.q(this.menu, '[data-dots]');
     dots.innerHTML = '';
-    for (let i = 1; i <= LEVELS_PER_ERA; i++) {
-      const dot = el('span', 'dot' + (i < inEra ? ' done' : i === inEra ? ' cur' : '') + (i === LEVELS_PER_ERA ? ' boss' : ''));
-      dot.innerHTML = i === LEVELS_PER_ERA ? ico('crown') : String(d.save.level - inEra + i);
+    for (let i = 1; i <= STAGES_PER_ERA; i++) {
+      const dot = el('span', 'dot' + (i === 1 ? ' cur' : '') + (i === STAGES_PER_ERA ? ' boss' : ''));
+      dot.innerHTML = i === STAGES_PER_ERA ? ico('crystal') : String(i);
       dots.append(dot);
     }
     const list = this.q(this.menu, '[data-upgrades]');
@@ -431,7 +433,7 @@ export class UI {
       b.dataset.note = u.note;
       list.append(b);
     }
-    this.q(this.menu, '[data-play-text]').textContent = `เล่น ด่าน ${d.save.level}`;
+    this.q(this.menu, '[data-play-text]').textContent = `เล่น ยุค ${d.save.level}`;
     this.lastTick = 0;
     this.tickMenu(d.save, d.now);
   }
@@ -458,12 +460,25 @@ export class UI {
 
   // ---------- ระหว่างเล่น ----------
 
-  showHud(level: number, timeline: number, eraBoss: boolean): void {
+  showHud(level: number, timeline: number, _eraBoss: boolean): void {
     this.hud.classList.remove('hidden');
-    this.q(this.hud, '[data-hudlvl]').textContent = timeline > 1 ? `TL${timeline} • ด่าน ${level}` : `ด่าน ${level}`;
-    this.q(this.hud, '[data-bossic]').innerHTML = ico(eraBoss ? 'crown' : 'crystal');
+    this.hudLevel = { level, timeline };
+    this.stageKey = -1;
+    this.setStage(1);
+    this.q(this.hud, '[data-bossic]').innerHTML = ico('crystal');
     this.hudKey = '';
     this.setProgress(0);
+  }
+
+  private hudLevel = { level: 1, timeline: 1 };
+  private stageKey = -1;
+
+  /** ป้ายมุมบน: ยุค + สเตจ */
+  setStage(stage: number): void {
+    if (stage === this.stageKey) return;
+    this.stageKey = stage;
+    const { level, timeline } = this.hudLevel;
+    this.q(this.hud, '[data-hudlvl]').textContent = `${timeline > 1 ? `TL${timeline} • ` : ''}ยุค ${level} • ${stage}/${STAGES_PER_ERA}`;
   }
 
   hideHud(): void {
@@ -485,7 +500,7 @@ export class UI {
     const chip = (ic: string, name: string, v: number) =>
       `<div class="stat ${v > 1.001 ? 'up' : v < 0.999 ? 'down' : ''}">${ico(ic)} ${name} ×${v.toFixed(2)}</div>`;
     this.q(this.hud, '[data-hstats]').innerHTML =
-      chip('stat_rate', 'อัตรายิง', s.rate) + chip('stat_range', 'ระยะ', s.range) + chip('stat_power', 'พลัง', s.power);
+      chip('stat_rate', 'อัตรายิง', s.rate) + chip('stat_range', 'ระยะ', s.range);
   }
 
   showHint(on: boolean): void {
@@ -503,6 +518,8 @@ export class UI {
     const key = `${Math.round(frac * 100)}|${count}|${max}`;
     if (key === this.gaugeKey) return;
     this.gaugeKey = key;
+    // ไม่มีแท่นข้างหน้า (เช่น ทุ่งหอคอย) → ซ่อนหลอด
+    this.q(this.hud, '[data-gauge]').style.visibility = count > 0 ? '' : 'hidden';
     this.q(this.hud, '[data-gfill]').style.height = `${Math.round(frac * 100)}%`;
     this.q(this.hud, '[data-gcur]').textContent = String(count);
     this.q(this.hud, '[data-gnext]').textContent = max ? 'MAX' : `+1`;
@@ -643,12 +660,12 @@ export class UI {
     const banner = r.win ? artUrl('banner_win') : artUrl('banner_lose');
     const title = banner
       ? `<img class="banner-img" src="${banner}" alt="">`
-      : `<div class="result-title">${r.win ? 'ผ่านด่าน!' : 'พ่ายแพ้'}</div>`;
+      : `<div class="result-title">${r.win ? 'ผ่านยุค!' : 'ทหารหมดแล้ว'}</div>`;
     const ec = r.eraClear;
     const buttons = ec
       ? `<button class="play-btn" data-act="era-next"><span>ไปยุคถัดไป</span></button>`
       : `<button class="play-btn" data-act="play" ${can ? '' : 'disabled'}>
-          <span>${r.win ? `ด่านต่อไป (${r.save.level})` : 'ลองอีกครั้ง'}</span><em>${ico('stamina')}${STAMINA_RUN_COST}</em>
+          <span>${r.win ? `ยุคถัดไป (${r.save.level})` : 'ลองอีกครั้ง'}</span><em>${ico('stamina')}${STAMINA_RUN_COST}</em>
         </button>
         <button class="ghost-btn" data-act="menu">เมนู / อัปเกรด</button>`;
     this.wheelSpun = false;
@@ -656,11 +673,11 @@ export class UI {
     this.resultModal.innerHTML = `
       <div class="card result ${r.win ? 'win' : 'lose'}">
         ${title}
-        <div class="result-sub">${r.win ? `ด่าน ${r.level}${r.castle ? ' • ทะลวงปราสาท!' : ''}${ec ? ` • เคลียร์${ec.from.nameTh}!` : ''}` : `ด่าน ${r.level} • ลองใหม่อีกครั้ง`}</div>
+        <div class="result-sub">${r.win ? `ยุค ${r.level}${ec ? ` • เคลียร์${ec.from.nameTh}!` : ''}` : `ยุค ${r.level} • ไปถึงสเตจ ${r.stage}/${STAGES_PER_ERA} • อัปเกรดแล้วลองใหม่`}</div>
         <div class="rewards-title">— รางวัล —</div>
         <div class="rewards">
           <div class="rw coin">${ico('coin')}<b data-reward>+${fmt(r.reward)}</b></div>
-          ${r.win ? `<div class="rw star">${ico('star')}<b>+${r.stars}</b></div>` : ''}
+          ${r.stars ? `<div class="rw star">${ico('star')}<b>+${r.stars}</b></div>` : ''}
           ${r.trophies ? `<div class="rw trophy">${ico('trophy')}<b>+${r.trophies}</b></div>` : ''}
           ${ec ? `<div class="rw stamina">${ico('stamina')}<b>+${ec.stamina}</b></div>` : ''}
         </div>
@@ -798,7 +815,7 @@ export class UI {
             )
             .join('')}
         </div>
-        <div class="note">ได้ดาวจากการชนะด่าน, คริสตัลที่มีดาว และการเคลียร์ยุค</div>
+        <div class="note">ได้ดาวจากหอคอยที่มีดาว และการผ่านยุค</div>
         <button class="play-btn" data-act="close-camp"><span>ปิด</span></button>
       </div>`;
     applySkins(this.campModal);
@@ -853,13 +870,13 @@ export class UI {
         ${row('vibration', `${ico('vibration')} การสั่น`, s.vibration)}
         <div class="howto">
           <b>วิธีเล่น</b><br>
-          ลากนิ้วซ้าย–ขวา ทหารจะยิงเอง • ยิงสิ่งกีดขวางให้แตกก่อนชน (ชั้นนอกแตกแล้วยังมีแกนข้างใน) •
-          ยิงแผงไม้หน้าป้ายให้พัง แล้วยิงป้าย (อัตรายิง/ระยะ/พลัง) ให้ค่าขึ้นเป็นสีเขียว แล้ววิ่งผ่าน •
-          ยิงแคปซูลให้แตก ทหารจะไปรอที่ Collect Area ต้องวิ่งผ่านถึงจะได้ •
-          ยิงก้อนหิน (ยิงไม่แตก) เพื่อเติมหลอดซ้าย เต็มแล้วแท่นถัดไปได้แคปซูล +1 (สูงสุด 5, เต็มยากขึ้นทุกครั้ง ผ่านแท่นแล้วเริ่มใหม่) • เดินชนก้อนหินทหารไม่ตาย แต่หินหายไป • ชนหอคอยทหารตาย •
-          ยิงแคปซูลสะสม EXP จนแถบเต็ม ทหารในแคปซูล Level +1 (สูงสุด 10) • ศัตรูชุดดำปาอาวุธใส่ โดนแล้วตาย 1 ตัว ยิงให้ล้มก่อน •
-          ยิงกรงให้เงินหล่น แล้ววิ่งเก็บ • ท้ายด่านยิงหอคอยเก็บเงิน ชนหอคอยแล้วทหารตายทีละตัว (ทหารหมดก็ยังผ่านด่าน) • ด่านยากขึ้นเรื่อยๆ •
-          ทุก 5 ด่านสู้ราชันแห่งยุค เคลียร์แล้วขึ้นยุคใหม่ (อัปเกรดรีเซ็ต ทหารเหลือ 1 คน) • ใช้ดาวซื้ออัปเกรดถาวรที่ค่ายฝึก
+          1 รอบเล่นจนทหารหมด หรือผ่านยุค • 1 ยุคมี 4 สเตจ: สเตจ 1–3 วิ่งยิง สเตจ 4 ทุ่งหอคอย ไปถึงแถวสุดท้ายถึงจะผ่านยุค (ไม่ต้องยิงทุกหอ) •
+          ลากนิ้วซ้าย–ขวา ทหารยิงเอง • ฝูงสูงสุด 20 ตัว •
+          ยิงก้อนหิน (ยิงไม่แตก) เติมหลอดซ้าย เต็มแล้วแท่นถัดไปได้แคปซูล +1 (สูงสุด 5) • ชนก้อนหินทหารไม่ตาย แต่หินหายไป •
+          ยิงแคปซูล/แท่นสะสม EXP เต็มแล้วทหารในแคปซูล Level +1 (สูงสุด 10) แคปซูลแตกแล้วทหารไปรอที่แถบฟ้า ต้องวิ่งผ่านถึงจะได้ •
+          ป้ายอัตรายิง/ระยะยิง: ยิงแผงไม้ (ถ้ามี) ให้พัง แล้วยิงค่าให้ขึ้น แล้ววิ่งผ่าน •
+          ศัตรูชุดดำปาอาวุธ โดนแล้วตาย 1 ตัว • ชนหอคอยทหารตายทีละตัว • กองเงินต้องเดินเก็บ •
+          ทหารหมดได้เงินที่เก็บมาไปอัปเกรด แล้วลองใหม่ • ผ่านยุคแล้วอัปเกรดรีเซ็ต • ใช้ดาวซื้ออัปเกรดถาวรที่ค่ายฝึก
         </div>
         <div class="note">ไม่มีโฆษณา • เล่นออฟไลน์ได้ • Stamina +1 ทุก 5 นาที (สูงสุด ${STAMINA_MAX})</div>
         <button class="ghost-btn danger" data-act="reset">ลบความคืบหน้าทั้งหมด</button>

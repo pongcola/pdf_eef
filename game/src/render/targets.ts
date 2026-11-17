@@ -18,7 +18,7 @@ import {
   TorusGeometry,
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { MAX_TIER } from '../config.ts';
+import { MAX_TIER, STAT_GATE_MAX } from '../config.ts';
 import { ERAS, PLAYER_COLOR, TIER_COLORS, tierLook } from '../eras.ts';
 import { STAT_LABEL, type StatKind } from '../game/level.ts';
 import { part, unitGeometry, unitMaterial } from './units.ts';
@@ -492,7 +492,7 @@ export class RecruitPad {
   addProgress(dmg: number): boolean {
     if (this.maxed) return false;
     this.prog += dmg;
-    const need = this.levelHp * Math.pow(1.3, this.own);
+    const need = this.levelHp * Math.pow(1.45, this.own);
     if (this.prog < need) return false;
     this.prog -= need;
     this.own++;
@@ -506,7 +506,7 @@ export class RecruitPad {
 
   levelFrac(): number {
     if (this.maxed) return 1;
-    return Math.min(1, this.prog / (this.levelHp * Math.pow(1.3, this.own)));
+    return Math.min(1, this.prog / (this.levelHp * Math.pow(1.45, this.own)));
   }
 
   /** แคปซูลแตก → ทหารวิ่งไปยืนรอใน Collect Area */
@@ -742,7 +742,7 @@ export class StatGate extends Target {
       }
       return;
     }
-    this.value = Math.min(400, this.value + gain);
+    this.value = Math.min(STAT_GATE_MAX, this.value + gain);
   }
 
   hit(dmg: number): boolean {

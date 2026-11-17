@@ -85,8 +85,9 @@ export function levelInEra(level: number): number {
   return ((level - 1) % LEVELS_PER_ERA) + 1;
 }
 
-export function isEraBossLevel(level: number): boolean {
-  return level % LEVELS_PER_ERA === 0;
+export function isEraBossLevel(_level: number): boolean {
+  // ไม่มีบอสแล้ว: ท้ายยุคเป็นทุ่งหอคอยเสมอ
+  return false;
 }
 
 /** ทหารระดับสูงหน้าตาเป็นทหารของยุคถัดๆ ไป (เหมือนวิวัฒนาการ) */

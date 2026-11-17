@@ -46,7 +46,7 @@ export const UPGRADES: readonly UpgradeDef[] = [
 ];
 
 /** จำนวนทหารสูงสุดในฝูง (ไม่จำกัดด้วยอัปเกรดแล้ว) */
-export const MAX_SQUAD = 60;
+export const MAX_SQUAD = 20;
 
 export function startTroops(lvl: number, m: MetaLevels): number {
   return 1 + lvl + m.veteran;
@@ -88,13 +88,14 @@ export function upgradeCost(def: UpgradeDef, lvl: number, eraOrd: number): numbe
 }
 
 /** เงินจบด่าน: ค่าผ่านด่าน + เงินที่เก็บได้ระหว่างทาง (เงินระหว่างทางคูณ "รายได้" ไปแล้ว) */
-export function winReward(inEra: number, eraOrd: number, collected: number, eraBoss: boolean): number {
-  const base = (15 + inEra * 8) * (1 + eraOrd * 0.3) + (eraBoss ? 100 : 0);
+export function winReward(eraOrd: number, collected: number): number {
+  const base = 100 * (1 + eraOrd * 0.3);
   return Math.round(base + collected);
 }
 
+/** ทหารหมดก่อนผ่านยุค: ได้เงินที่เก็บมาเต็มจำนวน (ใช้อัปเกรดแล้วลองใหม่) */
 export function loseReward(collected: number): number {
-  return Math.max(1, Math.round(collected * 0.5));
+  return Math.max(1, Math.round(collected));
 }
 
 // ---------- ค่ายฝึก: อัปเกรดถาวรด้วยดาว (ไม่รีเซ็ต) ----------
