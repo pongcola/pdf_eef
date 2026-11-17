@@ -159,7 +159,7 @@ class Spinner implements Obstacle {
   readonly z: number;
   private bar = new Group();
   private angle = 0;
-  private static readonly HALF = 3.4;
+  private static readonly HALF = 2.6;
   private readonly sec: ObstacleSection;
 
   constructor(sec: ObstacleSection) {

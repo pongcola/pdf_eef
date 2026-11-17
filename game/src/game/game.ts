@@ -199,6 +199,7 @@ export class Game {
   /** จำนวนแคปซูลบนแท่น (เกจเต็มแล้ว +1, สูงสุด 5) */
   private capCount = 2;
   private enemyShots: EnemyShot[] = [];
+  private ramT = 0;
   private hero: HeroModel | null = null;
   private heroDef: HeroDef = HEROES[0];
   private heroLvl = 1;
@@ -645,6 +646,19 @@ export class Game {
     // ---- เคลื่อนที่ ----
     let target = RUN_SPEED;
     if (this.state === 'boss' && this.dist >= L.endD - BOSS_STOP) target = 0;
+    // ทุ่งหอคอย: ชนหอคอยแล้วหยุด ทหารตายทีละตัวจนกว่าจะยิงหอคอยแตก
+    const wall = this.state === 'bonus' ? this.towerAhead() : null;
+    if (wall) {
+      target = 0;
+      this.ramT += dt;
+      if (this.ramT >= 0.25 && this.squad.count) {
+        this.ramT = 0;
+        const i = this.nearestTroop(wall.x, wall.z + wall.halfD);
+        const tr = this.squad.troops[i];
+        this.particles.burst(this.clampX(this.squad.x + tr.ox), 0.8, this.squad.z + tr.oz, 0x9aa1ad, 5, 3, 0.12, 0.5);
+        this.killTroop(i, 'block');
+      }
+    } else this.ramT = 0.15;
     this.speed += (target - this.speed) * (1 - Math.exp(-dt * (target === 0 ? 14 : 5)));
     if (this.state === 'boss') this.dist = Math.min(this.dist + this.speed * dt, L.endD - BOSS_STOP);
     else this.dist += this.speed * dt;
@@ -676,8 +690,7 @@ export class Game {
       }
     } else if (this.state === 'bonus') {
       this.bonusT += dt;
-      // ทุ่งหอคอย: เดินชนหอคอยแล้วทหารตัวที่ชนตาย ทหารหมดก็ถือว่าผ่านด่าน (ข้ามเส้นชัยมาแล้ว)
-      this.troopCollisions();
+      // ทหารหมดในทุ่งหอคอยก็ถือว่าผ่านด่าน (ข้ามเส้นชัยมาแล้ว) — ไม่จำกัดเวลา
       this.checkCash();
       if (this.squad.count === 0) {
         this.win();
@@ -687,8 +700,6 @@ export class Game {
         this.collected += bonus;
         const p = this.project(0, 4, -L.endD);
         this.ui.floatText(`ทะลวงปราสาท! +${bonus}`, p.x, p.y, true);
-        this.win();
-      } else if (this.bonusT > 40) {
         this.win();
       }
     } else {
@@ -938,7 +949,7 @@ export class Game {
 
   private troopCollisions(): void {
     const r = this.squad.radiusZ();
-    const solid: Target[] = this.state === 'bonus' ? this.crystals : [...this.blocks, ...this.cages];
+    const solid: Target[] = [...this.blocks, ...this.cages];
     for (const b of solid) {
       if (!b.alive || Math.abs(b.z - this.squad.z) > r + 1.6) continue;
       for (let i = this.squad.troops.length - 1; i >= 0; i--) {
@@ -946,11 +957,8 @@ export class Game {
         const wx = this.clampX(this.squad.x + tr.ox);
         const wz = this.squad.z + tr.oz;
         if (Math.abs(wx - b.x) < b.halfW + 0.15 && Math.abs(wz - b.z) < b.halfD + 0.2) {
+          // ชนแล้วทหารตาย แต่เลือดของสิ่งกีดขวางไม่ลด
           this.killTroop(i, 'block');
-          if (b.hit(this.baseDmg * this.powMul * 3 * FIRE_RATE_SCALE)) {
-            this.onDestroyed(b);
-            break;
-          }
         }
       }
     }
@@ -1364,6 +1372,19 @@ export class Game {
     sfx.click();
     this.setupHero();
     this.ui.renderTeam(this.teamData());
+  }
+
+  /** หอคอยที่ขวางหน้าฝูงอยู่ (เลนละ 3.2 หน่วย ไม่มีช่องให้ลอด) */
+  private towerAhead(): CrystalTarget | null {
+    const front = this.squad.z - this.squad.radiusZ() * 0.7;
+    const rx = this.squad.radiusX();
+    for (const c of this.crystals) {
+      if (!c.alive) continue;
+      const gap = front - (c.z + c.halfD);
+      if (gap < -1.2 || gap > 0.15) continue;
+      if (Math.abs(c.x - this.squad.x) < 1.6 + rx * 0.5) return c;
+    }
+    return null;
   }
 
   private startBonus(): void {

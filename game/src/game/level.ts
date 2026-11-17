@@ -138,17 +138,18 @@ export function generateLevel(level: number, player: PlayerStats): LevelData {
   const timeline = timelineForLevel(level);
   const eraBoss = isEraBossLevel(level);
   const relief = 1 - 0.12 * Math.min(3, player.failStreak);
-  // ทุกยุคเริ่มใหม่ (อัปเกรดรีเซ็ต) จึงให้ความยากไต่ตามด่านในยุค + ยุคละนิด
-  const hard = inEra + eraOrd * 1.2;
+  // ความยากเพิ่มขึ้นทุกด่านต่อเนื่อง (ไม่รีเซ็ตตอนขึ้นยุคใหม่)
+  const hard = 1 + (level - 1) * 0.4;
 
-  // ค่าอ้างอิง: ผสมระหว่าง "ค่ามาตรฐานของด่าน" กับ "ค่าจริงของผู้เล่น" (อัปเกรดช่วยได้ แต่ไม่ง่ายเกินไป)
-  const dmgRef = Math.sqrt(Math.pow(1.08, hard - 1) * player.power);
+  // ค่าอ้างอิงตามด่านเป็นหลัก ผสมค่าจริงของผู้เล่นเล็กน้อย (อัปเกรดช่วยได้ชัดเจน)
+  const dmgRef = Math.pow(Math.pow(1.1, hard - 1), 0.65) * Math.pow(player.power, 0.35);
   const capRef = Math.sqrt((8 + hard * 1.2) * player.capacity);
-  let troops = Math.min(capRef, Math.sqrt((1 + inEra * 0.3) * player.startTroops));
+  let troops = Math.min(capRef, Math.pow(1 + hard * 0.3, 0.6) * Math.pow(player.startTroops, 0.4));
   let bonusUnits = 0;
   let rateMul = 1;
   let powMul = 1;
-  const tBreak = Math.min(1.4, 0.7 + hard * 0.04);
+  // เวลาที่ต้องยิงให้แตก (วินาที) เพิ่มตามด่าน แต่ไม่เกินเวลาที่วิ่งเข้าไปถึง
+  const tBreak = Math.min(1.1, 0.65 + hard * 0.03);
   const dps = () => (troops + bonusUnits) * BASE_FIRE_RATE * rateMul * dmgRef * powMul;
   const hpOf = (k: number) => Math.max(2, Math.round(dps() * k * relief));
   const blockCoins = (hp: number) => Math.max(1, Math.round(Math.sqrt(hp) * 0.5));
