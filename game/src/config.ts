@@ -47,6 +47,8 @@ export const BOSS_STOMP_INTERVAL = 1.7;
 export const BOSS_STOMP_KILL = 0.1;
 
 /** โอกาสที่วงล้อคูณรางวัลจะโผล่หลังชนะ (0–1) */
-/** ค่าสูงสุดของป้ายสถานะ (+50 = เพิ่ม 25%) */
-export const STAT_GATE_MAX = 50;
+/** ป้ายสถานะยิงเพิ่มได้ไม่จำกัด */
+export const STAT_GATE_MAX = Infinity;
+/** ค่าจริงของป้าย = ค่าบนป้าย × 0.1 (%) */
+export const STAT_GATE_SCALE = 0.1;
 export const WHEEL_CHANCE = 0.4;

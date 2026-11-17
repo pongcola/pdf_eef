@@ -192,9 +192,8 @@ export function generateLevel(level: number, player: PlayerStats): LevelData {
       switch (type) {
         case 'block': {
           // ก้อนหินยิงไม่แตก (เติมหลอดซ้าย) ชนแล้วหินหาย ทหารไม่ตาย
-          const n = rng() < 0.55 ? 1 : 2;
-          const lanes = [...LANES].sort(() => rng() - 0.5).slice(0, n);
-          for (const x of lanes) items.push({ type: 'block', d, x, hp: 1, coins: 0 });
+          // 1 ก้อนต่อแถว
+          items.push({ type: 'block', d, x: pick(rng, LANES), hp: 1, coins: 0 });
           break;
         }
         case 'stat': {
@@ -223,7 +222,7 @@ export function generateLevel(level: number, player: PlayerStats): LevelData {
             x: side * (LANE_X - 0.3),
             capsules: 1,
             capsuleHp: hpOf(0.55),
-            levelHp: hpOf(0.35),
+            levelHp: hpOf(0.8),
             maxLevel: MAX_TIER,
             collectD: d + 12,
             collectX: side * (TRACK_WIDTH / 2 - collectW / 2),
@@ -257,7 +256,7 @@ export function generateLevel(level: number, player: PlayerStats): LevelData {
   // สเตจ 4 ทุ่งหอคอย: แถวละ 3 หอ เลือดเพิ่มตามระยะทาง ผ่านยุค = ไปถึงแถวสุดท้าย
   hard = hardAt(STAGES_PER_ERA - 1);
   // หอคอยแข็งขึ้นทุกยุค (ไม่ผสมค่าผู้เล่น: อัปเกรดช่วยได้จริง)
-  dmgRef = Math.pow(1.45, eraOrd);
+  dmgRef = Math.pow(1.4, eraOrd);
   const towerTroops = Math.min(MAX_SQUAD_REF, 5 + hard * 1.4);
   const towerDps = towerTroops * BASE_FIRE_RATE * dmgRef * 1.6;
   let cd = finishD + 8;

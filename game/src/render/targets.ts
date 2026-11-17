@@ -320,6 +320,13 @@ export class CapsuleTarget extends Target {
     this.group.add(this.unit);
   }
 
+  /** ยิงแคปซูล = สะสม EXP ให้แท่น (แคปซูลไม่แตกจากกระสุน แตกเมื่อเดินชน) */
+  hit(dmg: number): boolean {
+    this.pending += dmg;
+    this.hitT = 0.08;
+    return false;
+  }
+
   /** แตกแล้ว: ทหารวิ่งออกไป */
   shatter(): void {
     this.glass.visible = false;
@@ -451,6 +458,8 @@ export class RecruitPad {
     text.renderOrder = 2;
     this.strip.add(text);
     this.strip.position.set(collect.x, 0, collect.z);
+    // ไม่ใช้ Collect Area แล้ว: ชนแคปซูลแล้วทหารเข้าฝูงตอนสเตจถัดไป
+    this.strip.visible = false;
     this.group.add(this.strip);
   }
 
@@ -492,7 +501,7 @@ export class RecruitPad {
   addProgress(dmg: number): boolean {
     if (this.maxed) return false;
     this.prog += dmg;
-    const need = this.levelHp * Math.pow(1.45, this.own);
+    const need = this.levelHp * Math.pow(1.6, this.own);
     if (this.prog < need) return false;
     this.prog -= need;
     this.own++;
@@ -506,7 +515,7 @@ export class RecruitPad {
 
   levelFrac(): number {
     if (this.maxed) return 1;
-    return Math.min(1, this.prog / (this.levelHp * Math.pow(1.45, this.own)));
+    return Math.min(1, this.prog / (this.levelHp * Math.pow(1.6, this.own)));
   }
 
   /** แคปซูลแตก → ทหารวิ่งไปยืนรอใน Collect Area */

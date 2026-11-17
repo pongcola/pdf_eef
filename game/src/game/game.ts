@@ -16,6 +16,7 @@ import {
   BASE_RANGE,
   BOSS_STOMP_INTERVAL,
   STAGES_PER_ERA,
+  STAT_GATE_SCALE,
   BOSS_STOMP_KILL,
   COINS_PER_STAR,
   ERA_CLEAR_STAMINA,
@@ -233,6 +234,8 @@ export class Game {
   private reachedCastle = false;
   /** สเตจปัจจุบัน (0 = สเตจ 1) */
   private stage = 0;
+  /** ทหาร (Level) จากแคปซูลที่ชนแตก รอเข้าฝูงตอนเริ่มสเตจถัดไป */
+  private pendingTroops: number[] = [];
   private pendingReward = 0;
   private camPos = new Vector3(0, 8, 12);
   private camLook = new Vector3(0, 0, -6);
@@ -467,6 +470,7 @@ export class Game {
     this.bonusT = 0;
     this.reachedCastle = false;
     this.stage = 0;
+    this.pendingTroops = [];
     this.snapCamera();
   }
 
@@ -633,7 +637,6 @@ export class Game {
       else if (this.state === 'won' || this.state === 'lost') this.updateEnd(dt);
       for (const h of this.hazards) if (Math.abs(h.z - this.squad.z) < 90) h.update(this.t, dt);
       for (const t of this.targets) if (Math.abs(t.z - this.squad.z) < 90) t.update(dt, this.t);
-      for (const p of this.pads) if (!p.collected) p.updateWalkers(dt);
       for (const c of this.cash) if (Math.abs(c.z - this.squad.z) < 90) c.update(this.t);
       this.squad.update(dt);
       this.particles.update(dt);
@@ -697,11 +700,17 @@ export class Game {
       if (this.squad.count === 0) return this.lose();
       while (this.stage < L.stageD.length - 2 && this.dist >= L.stageD[this.stage + 1]) {
         this.stage++;
-        this.ui.toast(`สเตจ ${this.stage + 1}/${STAGES_PER_ERA}`);
+        const n = this.deliverPending();
+        this.ui.toast(`สเตจ ${this.stage + 1}/${STAGES_PER_ERA}${n ? ` • ทหาร +${n}` : ''}`);
       }
       if (this.dist >= L.finishD) {
         this.stage = STAGES_PER_ERA - 1;
         this.startBonus();
+        const n = this.deliverPending();
+        if (n) {
+          const q = this.project(this.squad.x, 2.6, this.squad.z);
+          this.ui.floatText(`ทหาร +${n}`, q.x, q.y, true);
+        }
       }
     } else if (this.state === 'bonus') {
       this.bonusT += dt;
@@ -816,10 +825,9 @@ export class Game {
         this.particles.burst(pad.x, 1.5, pad.z, 0x7fdcff, 16, 5, 0.12, 0.7);
         sfx.gateGood();
       }
-      if (best instanceof PadBody) {
-        best.hit(dmg);
-        return;
-      }
+      // ยิงแคปซูล/แท่น = สะสม EXP เท่านั้น แคปซูลแตกเมื่อเดินชน
+      best.hit(dmg);
+      return;
     }
     // หลอดซ้ายขึ้นตามจำนวนครั้งที่ยิงโดนก้อนหิน (ก้อนหินไม่แตก)
     if (best instanceof BlockTarget) {
@@ -1002,6 +1010,30 @@ export class Game {
         }
       }
     }
+    // ชนแคปซูล: แคปซูลแตก ทหารข้างในไปรอเข้าฝูงตอนเริ่มสเตจถัดไป
+    for (const p of this.pads) {
+      if (p.collected) continue;
+      for (const c of p.capsules) {
+        if (!c.alive || Math.abs(c.z - this.squad.z) > r + 1.2) continue;
+        for (const tr of this.squad.troops) {
+          const wx = this.clampX(this.squad.x + tr.ox);
+          const wz = this.squad.z + tr.oz;
+          if (Math.abs(wx - c.x) < c.halfW + 0.2 && Math.abs(wz - c.z) < c.halfD + 0.25) {
+            c.alive = false;
+            c.label?.remove();
+            c.label = null;
+            c.shatter();
+            this.pendingTroops.push(p.level);
+            this.particles.burst(c.x, 1, c.z, 0xcff6ff, 14, 5, 0.12, 0.7);
+            const q = this.project(c.x, 2.4, c.z);
+            this.ui.floatText(`+1 Lv.${p.level} รอสเตจถัดไป`, q.x, q.y, true);
+            sfx.breakBlock();
+            buzz('light');
+            break;
+          }
+        }
+      }
+    }
     const solid: Target[] = [...this.cages];
     for (const b of solid) {
       if (!b.alive || Math.abs(b.z - this.squad.z) > r + 1.6) continue;
@@ -1033,8 +1065,10 @@ export class Game {
       g.label?.remove();
       if (Math.abs(this.squad.x - g.x) > 2.05) continue;
       const v = Math.round(g.value);
-      if (g.stat === 'rate') this.rateMul = Math.max(0.4, this.rateMul * (1 + v / 200));
-      else if (g.stat === 'range') this.rangeMul = Math.max(0.45, this.rangeMul * (1 + v / 200));
+      // ค่าจริง = ค่าบนป้าย × 0.1 (%) เช่น +50 → +5%
+      const real = (v * STAT_GATE_SCALE) / 100;
+      if (g.stat === 'rate') this.rateMul = Math.max(0.4, this.rateMul * (1 + real));
+      else if (g.stat === 'range') this.rangeMul = Math.max(0.45, this.rangeMul * (1 + real));
       else this.powMul = Math.max(0.4, this.powMul * (1 + v / 200));
       const p = this.project(this.squad.x, 2.4, this.squad.z);
       this.ui.floatText(`${STAT_LABEL[g.stat]} ${v >= 0 ? '+' : ''}${v}`, p.x, p.y, v >= 0);
@@ -1049,27 +1083,29 @@ export class Game {
     }
   }
 
+  /** ผ่านแท่นไปแล้ว (เลยหลังแท่น) */
   private checkPads(): void {
-    const rx = this.squad.radiusX();
     for (const p of this.pads) {
       if (p.collected) continue;
-      // ถึง Collect Area แล้ว
-      if (this.squad.z - this.squad.radiusZ() * 0.5 > p.collectZ) continue;
+      if (this.squad.z - this.squad.radiusZ() * 0.5 > p.z - 2) continue;
       p.collected = true;
-      const inArea = Math.abs(this.squad.x - p.collectX) < p.collectHalfW + rx * 0.6;
-      if (inArea && p.walkers.length) {
-        let best = 1;
-        for (const w of p.walkers) {
-          this.addTroop(w.tier, w.x, w.z);
-          best = Math.max(best, w.tier);
-        }
-        const q = this.project(p.collectX, 2, p.collectZ);
-        this.ui.floatText(`+${p.walkers.length} ทหาร Lv.${best}`, q.x, q.y, true);
-        sfx.join();
-        buzz('medium');
-      }
-      p.clearWalkers();
+      p.label?.remove();
+      p.label = null;
     }
+  }
+
+  /** เริ่มสเตจใหม่: ทหารจากแคปซูลที่ชนแตกเข้าฝูง */
+  private deliverPending(): number {
+    const n = this.pendingTroops.length;
+    for (const tier of this.pendingTroops) {
+      this.addTroop(tier, this.squad.x + (Math.random() - 0.5) * 2, this.squad.z + 2 + Math.random() * 2);
+    }
+    this.pendingTroops = [];
+    if (n) {
+      sfx.join();
+      buzz('medium');
+    }
+    return n;
   }
 
   private updateEnemies(dt: number): void {
@@ -1731,12 +1767,12 @@ export class Game {
     for (const t of this.targets) {
       const isGate = t instanceof StatGate;
       const showable =
-        t.kind !== 'pad' && t.kind !== 'block' && t.alive && (!isGate || t.blocked) && t.z < sz + 1 && t.z > sz - 45 && this.state !== 'menu';
+        t.kind !== 'pad' && t.kind !== 'block' && t.kind !== 'capsule' && t.alive && (!isGate || t.blocked) && t.z < sz + 1 && t.z > sz - 45 && this.state !== 'menu';
       if (!showable) {
         if (t.label) t.label.style.display = 'none';
       } else {
         t.label ??= this.ui.makeLabel('hp');
-        const y = t.kind === 'crystal' ? 3.3 : t.kind === 'capsule' ? 2.3 : isGate ? 3.4 : 2.35;
+        const y = t.kind === 'crystal' ? 3.3 : isGate ? 3.4 : 2.35;
         const p = this.project(t.x, y, t.z);
         this.ui.setLabel(t.label, Math.ceil(isGate ? t.barrierHp : t.hp), p.x, p.y, p.vis);
       }
