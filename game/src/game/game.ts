@@ -1,8 +1,10 @@
 import {
   AmbientLight,
+  BoxGeometry,
+  Mesh,
+  MeshLambertMaterial,
   DirectionalLight,
   HemisphereLight,
-  type Mesh,
   PerspectiveCamera,
   Scene,
   Vector3,
@@ -26,7 +28,8 @@ import {
 } from '../config.ts';
 import {
   capacity,
-  gaugeTroops,
+  capsuleStartCount,
+  gaugeSpeed,
   incomeMult,
   loseReward,
   META,
@@ -39,7 +42,7 @@ import {
   type MetaId,
   type UpgradeId,
 } from '../economy.ts';
-import { ENEMY_COLOR, ERAS, eraIndexForLevel, eraOrdinal, TIER_COLORS, tierLook, timelineForLevel, type EraDef } from '../eras.ts';
+import { ENEMY_COLOR, ENEMY_SQUAD_COLOR, ERAS, eraIndexForLevel, eraOrdinal, TIER_COLORS, tierLook, timelineForLevel, type EraDef } from '../eras.ts';
 import { sfx, setMusic, setSound, suspendAudio, resumeAudio } from '../audio.ts';
 import { buzz, exitApp, setVibration } from '../platform.ts';
 import { clearSave, defaultSave, loadSave, writeSave, type SaveData } from '../save.ts';
@@ -85,6 +88,20 @@ interface EnemyUnit {
   z: number;
   hp: number;
   alive: boolean;
+  /** เวลาถึงการปาครั้งถัดไป */
+  cool: number;
+}
+
+/** อาวุธที่ศัตรูปาใส่ */
+interface EnemyShot {
+  mesh: Mesh;
+  x0: number;
+  z0: number;
+  x1: number;
+  z1: number;
+  t: number;
+  dur: number;
+  alive: boolean;
 }
 
 interface EnemyGroup {
@@ -95,6 +112,8 @@ interface EnemyGroup {
 }
 
 const BOSS_STOP = 10.5;
+const ENEMY_SHOT_GEO = new BoxGeometry(0.12, 0.12, 0.7);
+const ENEMY_SHOT_MAT = new MeshLambertMaterial({ color: 0xc0303a });
 
 export class Game {
   readonly renderer: WebGLRenderer;
@@ -139,7 +158,11 @@ export class Game {
   /** เกจด้านซ้าย: เต็มแล้วได้ทหารเพิ่ม */
   private gauge = 0;
   private gaugeGain = 1;
-  private gaugeN = 1;
+  /** ดาเมจที่ต้องยิงใส่หอหินเพื่อให้เกจเต็ม 1 ครั้ง */
+  private gaugeNeed = 1;
+  /** จำนวนแคปซูลบนแท่น (เกจเต็มแล้ว +1, สูงสุด 5) */
+  private capCount = 2;
+  private enemyShots: EnemyShot[] = [];
 
   private t = 0;
   private dist = 0;
@@ -304,7 +327,7 @@ export class Game {
           break;
         }
         case 'recruit': {
-          const p = new RecruitPad(era, it.x, z, it.capsules, it.capsuleHp, it.levelHp, it.maxLevel, {
+          const p = new RecruitPad(era, it.x, z, capsuleStartCount(this.save.upgrades.capacity), it.capsuleHp, it.levelHp, it.maxLevel, {
             x: it.collectX,
             z: -it.collectD,
             w: it.collectW,
@@ -322,14 +345,14 @@ export class Game {
           break;
         }
         case 'enemies': {
-          const swarm = new UnitSwarm(era, ENEMY_COLOR, it.count);
+          const swarm = new UnitSwarm(era, ENEMY_SQUAD_COLOR, it.count);
           swarm.run.value = 0;
           this.scene.add(swarm.mesh);
           const units: EnemyUnit[] = [];
           for (let i = 0; i < it.count; i++) {
             const row = Math.floor(i / 4);
             const col = i % 4;
-            units.push({ x: it.x + (col - 1.5) * 0.7 + (row % 2) * 0.3, z: z - row * 0.7, hp: it.hp, alive: true });
+            units.push({ x: it.x + (col - 1.5) * 0.9 + (row % 2) * 0.3, z: z - row * 0.9, hp: it.hp, alive: true, cool: 1.2 + Math.random() * 1.4 });
           }
           this.enemies.push({ z, units, swarm, charging: false });
           break;
@@ -371,8 +394,14 @@ export class Game {
     this.collected = 0;
     this.starsGot = 0;
     this.gauge = 0;
-    this.gaugeN = gaugeTroops(up.capacity);
-    this.gaugeGain = 1 + up.capacity * 0.08;
+    this.gaugeGain = gaugeSpeed(up.capacity);
+    this.capCount = capsuleStartCount(up.capacity);
+    // เกจเต็มเมื่อยิงหอหินได้ราว 1.6 ก้อน
+    const blockHp = this.blocks.map((b) => b.maxHp);
+    const avg = blockHp.length ? blockHp.reduce((a, b) => a + b, 0) / blockHp.length : 10;
+    this.gaugeNeed = (avg * 1.6) / this.gaugeGain;
+    for (const sh of this.enemyShots) sh.mesh.visible = false;
+    for (const sh of this.enemyShots) sh.alive = false;
     this.dist = 0;
     this.speed = 0;
     this.t = 0;
@@ -656,7 +685,6 @@ export class Game {
           u.alive = false;
           this.particles.burst(u.x, 0.6, u.z, ENEMY_COLOR, 6, 4);
           sfx.pop();
-          this.addGauge(0.05);
           if (Math.random() < 0.35) this.spawnCash(u.x, u.z, Math.round(2 + this.level.hard * 0.6));
         }
         return true;
@@ -671,7 +699,6 @@ export class Game {
           best.justBroke = false;
           this.particles.burst(best.x, 1.1, best.z + 0.4, 0x9a6440, 18, 6, 0.22, 0.9);
           sfx.breakBlock();
-          this.addGauge(0.08);
         } else sfx.tick();
         return true;
       }
@@ -688,11 +715,12 @@ export class Game {
           return true;
         }
       }
+      // เกจซ้ายขึ้นเฉพาะตอนยิงหอหิน
+      if (best instanceof BlockTarget) this.addGauge(Math.min(dmg, best.hp));
       const dead = best.hit(dmg);
       if (best instanceof BlockTarget && best.justCracked) {
         best.justCracked = false;
         this.particles.burst(best.x, 1.2, best.z, 0x9a958c, 16, 6, 0.2, 0.9);
-        this.addGauge(0.08);
         sfx.hit();
       }
       if (best instanceof CageTarget) {
@@ -734,9 +762,7 @@ export class Game {
       this.ui.coinPop(`+${t.coins}`, p.x, p.y);
       sfx.breakBlock();
       buzz('light');
-      this.addGauge(0.22);
     } else if (t instanceof CageTarget) {
-      this.addGauge(0.15);
       t.group.visible = false;
       this.particles.burst(t.x, 1, t.z, 0x4a4f5a, 18, 6, 0.16, 0.9);
       for (const s of t.prisonerSpots()) this.addTroop(1, s.x, s.z);
@@ -777,21 +803,26 @@ export class Game {
     this.ui.coinPop(`เต็ม +${v}`, p.x, p.y);
   }
 
-  /** เติมเกจด้านซ้าย เต็มแล้วได้ทหารเพิ่ม */
-  private addGauge(v: number): void {
-    if (this.state !== 'run') return;
-    this.gauge += v * this.gaugeGain;
-    while (this.gauge >= 1) {
+  /** เติมเกจด้านซ้ายด้วยดาเมจที่ยิงใส่หอหิน เต็มแล้วแคปซูลบนแท่น +1 ช่อง (สูงสุด 5) */
+  private addGauge(dmg: number): void {
+    if (this.state !== 'run' || this.capCount >= 5) return;
+    this.gauge += dmg / this.gaugeNeed;
+    while (this.gauge >= 1 && this.capCount < 5) {
       this.gauge -= 1;
-      for (let k = 0; k < this.gaugeN; k++) {
-        this.addTroop(1, this.squad.x + (Math.random() - 0.5) * 1.5, this.squad.z + this.squad.radiusZ() + 0.6);
+      this.capCount++;
+      this.gaugeNeed *= 1.3;
+      // แท่นที่ยังอยู่ข้างหน้าได้แคปซูลเพิ่ม
+      for (const p of this.pads) {
+        if (p.collected || p.z > this.squad.z - 2) continue;
+        for (const c of p.setCount(this.capCount)) this.targets.push(c);
       }
-      const p = this.project(this.squad.x, 2.4, this.squad.z);
-      this.ui.floatText(`+${this.gaugeN} ทหาร`, p.x, p.y, true);
+      const q = this.project(this.squad.x, 2.6, this.squad.z);
+      this.ui.floatText(`แคปซูล +1 (${this.capCount} ช่อง)`, q.x, q.y, true);
       this.ui.pulseGauge();
-      sfx.join();
+      sfx.gateGood();
       buzz('medium');
     }
+    if (this.capCount >= 5) this.gauge = 1;
   }
 
   private spawnCash(x: number, z: number, value: number): void {
@@ -914,39 +945,87 @@ export class Game {
     const rz = this.squad.radiusZ();
     for (const g of this.enemies) {
       if (!g.charging) {
-        if (g.z - this.squad.z > -13) {
-          g.charging = true;
-          g.swarm.run.value = 1;
-        } else continue;
+        if (g.z - this.squad.z > -16) g.charging = true;
+        else continue;
       }
       for (const u of g.units) {
         if (!u.alive) continue;
         const dx = this.squad.x - u.x;
         const dz = this.squad.z - u.z;
-        const d = Math.hypot(dx, dz) || 1;
-        // ศัตรูเดินเข้ามาช้าๆ (ให้มีเวลายิง)
-        u.x += (dx / d) * 1.6 * dt;
-        u.z += (dz / d) * 1.6 * dt;
-        if (u.z > this.squad.z + 4) u.alive = false;
-        // ชนขอบฝูง (วงรี)
+        // อยู่ข้างหลังเราแล้ว: เลิกปา
+        if (dz < -1.5) continue;
+        // ปาอาวุธเป็นระยะ
+        u.cool -= dt;
+        if (u.cool <= 0 && dz > 2) {
+          // ด่านต้นๆ ปาช้ากว่า
+          u.cool = (2.0 + Math.random() * 1.2) * (this.level.hard < 8 ? 1.3 : 1);
+          this.throwAt(u);
+        }
+        // ถ้าวิ่งชนตัวศัตรู: ตายทั้งคู่
         const inside = (dx / (rx + 0.1)) ** 2 + (dz / (rz + 0.1)) ** 2 < 1;
         if (inside && this.squad.count) {
-          // ชนแล้วตายทั้งคู่: เลือกทหารที่ใกล้ที่สุด
-          let bi = 0;
-          let bd = Infinity;
-          for (let i = 0; i < this.squad.troops.length; i++) {
-            const tr = this.squad.troops[i];
-            const dd = Math.hypot(this.squad.x + tr.ox - u.x, this.squad.z + tr.oz - u.z);
-            if (dd < bd) {
-              bd = dd;
-              bi = i;
-            }
-          }
-          this.killTroop(bi, 'enemy');
+          this.killTroop(this.nearestTroop(u.x, u.z), 'enemy');
           u.alive = false;
           this.particles.burst(u.x, 0.6, u.z, ENEMY_COLOR, 6, 4);
         }
       }
+    }
+    this.updateEnemyShots(dt);
+  }
+
+  private nearestTroop(x: number, z: number): number {
+    let bi = 0;
+    let bd = Infinity;
+    for (let i = 0; i < this.squad.troops.length; i++) {
+      const tr = this.squad.troops[i];
+      const d = Math.hypot(this.clampX(this.squad.x + tr.ox) - x, this.squad.z + tr.oz - z);
+      if (d < bd) {
+        bd = d;
+        bi = i;
+      }
+    }
+    return bi;
+  }
+
+  /** ศัตรูปาอาวุธไปยังตำแหน่งที่ฝูงจะไปถึง */
+  private throwAt(u: EnemyUnit): void {
+    let sh = this.enemyShots.find((s) => !s.alive);
+    if (!sh) {
+      const mesh = new Mesh(ENEMY_SHOT_GEO, ENEMY_SHOT_MAT);
+      this.scene.add(mesh);
+      sh = { mesh, x0: 0, z0: 0, x1: 0, z1: 0, t: 0, dur: 1, alive: false };
+      this.enemyShots.push(sh);
+    }
+    const dist = Math.max(2, this.squad.z - u.z);
+    const dur = dist / 13;
+    sh.x0 = u.x;
+    sh.z0 = u.z;
+    // เล็งไปข้างหน้าเผื่อฝูงวิ่ง + กระจายนิดหน่อย
+    sh.x1 = this.squad.x + (Math.random() - 0.5) * this.squad.radiusX();
+    sh.z1 = this.squad.z - this.speed * dur + (Math.random() - 0.5) * this.squad.radiusZ() * 0.6;
+    sh.t = 0;
+    sh.dur = dur;
+    sh.alive = true;
+    sh.mesh.visible = true;
+  }
+
+  private updateEnemyShots(dt: number): void {
+    for (const sh of this.enemyShots) {
+      if (!sh.alive) continue;
+      sh.t += dt;
+      const k = Math.min(1, sh.t / sh.dur);
+      sh.mesh.position.set(sh.x0 + (sh.x1 - sh.x0) * k, 1.1 + Math.sin(k * Math.PI) * 1.6, sh.z0 + (sh.z1 - sh.z0) * k);
+      sh.mesh.rotation.x -= dt * 16;
+      if (k < 1) continue;
+      sh.alive = false;
+      sh.mesh.visible = false;
+      // โดนทหารที่อยู่ใกล้จุดตกที่สุด (ถ้าอยู่ใกล้พอ) → ตาย 1 ตัว
+      if (!this.squad.count || this.state !== 'run') continue;
+      const i = this.nearestTroop(sh.x1, sh.z1);
+      const tr = this.squad.troops[i];
+      const d = Math.hypot(this.clampX(this.squad.x + tr.ox) - sh.x1, this.squad.z + tr.oz - sh.z1);
+      if (d < 0.75) this.killTroop(i, 'enemy');
+      else this.particles.burst(sh.x1, 0.2, sh.z1, 0x9aa1ad, 4, 2, 0.08, 0.4);
     }
   }
 
@@ -1152,7 +1231,7 @@ export class Game {
       g.swarm.begin();
       for (const u of g.units) {
         if (!u.alive) continue;
-        const rot = g.charging ? Math.atan2(-(sx - u.x), -(sz - u.z)) : Math.PI;
+        const rot = Math.atan2(-(sx - u.x), -(sz - u.z));
         g.swarm.push(this.clampX(u.x), 0, u.z, rot, 1);
       }
       g.swarm.end();
@@ -1214,7 +1293,7 @@ export class Game {
   }
 
   private updateHud(): void {
-    this.ui.setGauge(this.gauge, this.gaugeN);
+    this.ui.setGauge(this.gauge, this.capCount, this.capCount >= 5);
     this.ui.setHudStats({
       coins: this.collected,
       troops: this.squad.count,
@@ -1243,7 +1322,7 @@ export class Game {
       }
       p.label ??= this.ui.makeLabel('pad');
       const q = this.project(p.x, 3.15, p.z);
-      this.ui.setPadLabel(p.label, p.level, p.levelFrac(), p.level >= p.maxLevel, q.x, q.y, q.vis && p.z < sz - 1);
+      this.ui.setPadLabel(p.label, p.level, p.levelFrac(), p.maxed, q.x, q.y, q.vis && p.z < sz - 1);
     }
     for (const t of this.targets) {
       const isGate = t instanceof StatGate;

@@ -62,6 +62,8 @@ export const ERAS: readonly EraDef[] = [
 
 export const PLAYER_COLOR = 0x2f7bff;
 export const ENEMY_COLOR = 0xe8433f;
+/** ทหารศัตรู (ชุดดำแดง) */
+export const ENEMY_SQUAD_COLOR = 0x2b2b38;
 /** สีเสื้อทหารตามระดับ 1–5 */
 export const TIER_COLORS = [PLAYER_COLOR, 0x2fbf63, 0xf2b632, 0x9b5cff, 0x38f2ff];
 

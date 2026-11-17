@@ -26,7 +26,7 @@ export const UPGRADES: readonly UpgradeDef[] = [
   },
   {
     id: 'capacity', nameTh: 'ความจุ', icon: 'up_capacity', color: '#3f8cff', baseCost: 40, growth: 1.28,
-    describe: (lvl, m) => `สูงสุด ${capacity(lvl, m)} • เกจ +${gaugeTroops(lvl)}`,
+    describe: (lvl, m) => `สูงสุด ${capacity(lvl, m)} • แคปซูล ${capsuleStartCount(lvl)}`,
   },
   {
     id: 'power', nameTh: 'พลังโจมตี', icon: 'up_power', color: '#ff8a1f', baseCost: 55, growth: 1.3,
@@ -46,9 +46,14 @@ export function capacity(lvl: number, m: MetaLevels): number {
   return 8 + lvl * 3 + m.logistics * 2;
 }
 
-/** เกจด้านซ้ายเต็มแล้วได้ทหารกี่คน */
-export function gaugeTroops(lvl: number): number {
-  return 1 + Math.floor(lvl / 3);
+/** จำนวนแคปซูลบนแท่นตอนเริ่มด่าน (อัปเกรดความจุทุก 5 ระดับ +1, สูงสุด 5) */
+export function capsuleStartCount(lvl: number): number {
+  return Math.min(5, 2 + Math.floor(lvl / 5));
+}
+
+/** เกจด้านซ้ายเติมเร็วขึ้นตามอัปเกรดความจุ */
+export function gaugeSpeed(lvl: number): number {
+  return 1 + lvl * 0.08;
 }
 
 export function playerPower(lvl: number, m: MetaLevels): number {

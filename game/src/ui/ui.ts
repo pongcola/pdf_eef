@@ -192,9 +192,9 @@ export class UI {
       </div>
       <div class="hud-stats" data-hstats></div>
       <div class="gauge" data-gauge>
-        <div class="g-ic">${ico('troop')}</div>
+        <div class="g-next" data-gnext>3</div>
         <div class="g-bar"><i data-gfill></i></div>
-        <div class="g-n" data-gn>+1</div>
+        <div class="g-ic">${ico('troop')}<b data-gcur>1</b></div>
       </div>`,
     );
     root.append(this.hud);
@@ -435,13 +435,14 @@ export class UI {
 
   private gaugeKey = '';
 
-  /** เกจด้านซ้าย: frac 0–1, n = ทหารที่ได้เมื่อเต็ม */
-  setGauge(frac: number, n: number): void {
-    const key = `${Math.round(frac * 100)}|${n}`;
+  /** เกจด้านซ้าย: frac 0–1, count = จำนวนแคปซูลบนแท่นตอนนี้ (ล่าง) → ถัดไป (บน) */
+  setGauge(frac: number, count: number, max: boolean): void {
+    const key = `${Math.round(frac * 100)}|${count}|${max}`;
     if (key === this.gaugeKey) return;
     this.gaugeKey = key;
     this.q(this.hud, '[data-gfill]').style.height = `${Math.round(frac * 100)}%`;
-    this.q(this.hud, '[data-gn]').textContent = `+${n}`;
+    this.q(this.hud, '[data-gcur]').textContent = String(count);
+    this.q(this.hud, '[data-gnext]').textContent = max ? 'MAX' : String(count + 1);
   }
 
   pulseGauge(): void {
@@ -735,8 +736,10 @@ export class UI {
           <b>วิธีเล่น</b><br>
           ลากนิ้วซ้าย–ขวา ทหารจะยิงเอง • ยิงสิ่งกีดขวางให้แตกก่อนชน (ชั้นนอกแตกแล้วยังมีแกนข้างใน) •
           ยิงแผงไม้หน้าป้ายให้พัง แล้วยิงป้าย (อัตรายิง/ระยะ/พลัง) ให้ค่าขึ้นเป็นสีเขียว แล้ววิ่งผ่าน •
-          ยิงแท่นทหารให้ Level ขึ้น แล้วยิงแคปซูลให้แตก ทหารจะไปรอที่ Collect Area ต้องวิ่งผ่านถึงจะได้ •
-          ทำลายของเพื่อเติมเกจด้านซ้าย เต็มแล้วได้ทหารเพิ่ม • ยิงกรงให้เงินหล่น แล้ววิ่งเก็บ • ท้ายด่านยิงหอคอยเก็บเงิน •
+          ยิงแคปซูลให้แตก ทหารจะไปรอที่ Collect Area ต้องวิ่งผ่านถึงจะได้ •
+          ยิงหอหินเพื่อเติมเกจด้านซ้าย เต็มแล้วแคปซูลบนแท่นเพิ่ม 1 ช่อง (สูงสุด 5) •
+          ยิงแท่นแคปซูลจนแถบเต็ม ทหารในแคปซูล Level +1 (สูงสุด 5) • ศัตรูชุดดำปาอาวุธใส่ โดนแล้วตาย 1 ตัว ยิงให้ล้มก่อน •
+          ยิงกรงให้เงินหล่น แล้ววิ่งเก็บ • ท้ายด่านยิงหอคอยเก็บเงิน •
           ทุก 5 ด่านสู้ราชันแห่งยุค เคลียร์แล้วขึ้นยุคใหม่ (อัปเกรดรีเซ็ต ทหารเหลือ 1 คน) • ใช้ดาวซื้ออัปเกรดถาวรที่ค่ายฝึก
         </div>
         <div class="note">ไม่มีโฆษณา • เล่นออฟไลน์ได้ • Stamina +1 ทุก 5 นาที (สูงสุด ${STAMINA_MAX})</div>

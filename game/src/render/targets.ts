@@ -17,6 +17,7 @@ import {
   TorusGeometry,
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { MAX_TIER } from '../config.ts';
 import { ERAS, PLAYER_COLOR, TIER_COLORS, tierLook } from '../eras.ts';
 import { STAT_LABEL, type StatKind } from '../game/level.ts';
 import { part, unitGeometry, unitMaterial } from './units.ts';
@@ -283,6 +284,7 @@ const baseGeo = new CylinderGeometry(0.42, 0.48, 0.3, 8);
 export class CapsuleTarget extends Target {
   readonly kind = 'capsule' as const;
   unit: Mesh;
+  tier = 1;
   readonly pad: RecruitPad;
   private readonly glass: Mesh;
   private readonly cap: Mesh;
@@ -310,6 +312,8 @@ export class CapsuleTarget extends Target {
 
   /** เปลี่ยนหน้าตาทหารข้างในตามเลเวลของแท่น */
   setTier(tier: number): void {
+    if (tier === this.tier) return;
+    this.tier = tier;
     this.group.remove(this.unit);
     this.unit.geometry.dispose();
     this.unit = troopMesh(this.era, tier);
@@ -393,9 +397,11 @@ export class RecruitPad {
   readonly capsules: CapsuleTarget[] = [];
   readonly body: PadBody;
   readonly era: number;
-  /** เลเวลของทหารในแท่น (ยิงเพิ่มได้) */
-  level = 1;
+  /** Level ที่ได้เพิ่มจากการยิงแท่นนี้ (Level = 1 + own) */
+  own = 0;
+  /** Level สูงสุดของแท่น */
   readonly maxLevel: number;
+  private readonly capsuleHp: number;
   /** ดาเมจสะสมในเลเวลปัจจุบัน */
   prog = 0;
   readonly levelHp: number;
@@ -428,11 +434,8 @@ export class RecruitPad {
     wall.position.set(x, 1.1, z);
     this.group.add(wall);
     this.body = new PadBody(this);
-    for (let i = 0; i < count; i++) {
-      const c = new CapsuleTarget(this, era, x + (i - (count - 1) / 2) * 1.15, z + 0.1, capsuleHp);
-      this.capsules.push(c);
-      this.group.add(c.group);
-    }
+    this.capsuleHp = capsuleHp;
+    this.setCount(count);
     // Collect Area: แถบสีฟ้าบนถนนข้างหน้า
     this.strip = new Group();
     const area = new Mesh(new PlaneGeometry(collect.w, 2.6), stripMat);
@@ -449,21 +452,59 @@ export class RecruitPad {
     this.group.add(this.strip);
   }
 
-  /** เพิ่มดาเมจเข้าแท่น; คืนค่า true ถ้าเลเวลขึ้น */
+  get level(): number {
+    return Math.min(MAX_TIER, this.maxLevel, 1 + this.own);
+  }
+
+  get maxed(): boolean {
+    return this.level >= Math.min(MAX_TIER, this.maxLevel);
+  }
+
+  /** ตั้งจำนวนแคปซูล (เกจซ้ายเต็มแล้ว +1, สูงสุด 5); คืนค่าแคปซูลที่เพิ่มใหม่ */
+  setCount(n: number): CapsuleTarget[] {
+    n = Math.min(5, n);
+    const added: CapsuleTarget[] = [];
+    while (this.capsules.length < n) {
+      const c = new CapsuleTarget(this, this.era, this.x, this.z, this.capsuleHp);
+      c.setTier(this.level);
+      this.capsules.push(c);
+      this.group.add(c.group);
+      added.push(c);
+    }
+    // จัดวาง: แถวหน้าสูงสุด 3 ช่อง ที่เหลืออยู่แถวหลัง
+    const front = Math.min(3, this.capsules.length);
+    const back = this.capsules.length - front;
+    this.capsules.forEach((c, i) => {
+      const row = i < front ? 0 : 1;
+      const k = row === 0 ? i : i - front;
+      const cnt = row === 0 ? front : back;
+      const gap = cnt >= 3 ? 1.0 : 1.15;
+      c.x = this.x + (k - (cnt - 1) / 2) * gap;
+      c.z = this.z + (back > 0 ? (row === 0 ? 0.5 : -0.5) : 0.1);
+      c.group.position.set(c.x, 0, c.z);
+    });
+    return added;
+  }
+
+  /** เพิ่มดาเมจเข้าแท่น; คืนค่า true ถ้า Level ขึ้น */
   addProgress(dmg: number): boolean {
-    if (this.level >= this.maxLevel) return false;
+    if (this.maxed) return false;
     this.prog += dmg;
-    const need = this.levelHp * Math.pow(1.6, this.level - 1);
+    const need = this.levelHp * Math.pow(1.6, this.own);
     if (this.prog < need) return false;
     this.prog -= need;
-    this.level++;
-    for (const c of this.capsules) if (c.alive) c.setTier(this.level);
+    this.own++;
+    this.refreshTier();
     return true;
   }
 
+  private refreshTier(): void {
+    for (const c of this.capsules) if (c.alive) c.setTier(this.level);
+  }
+
   levelFrac(): number {
-    if (this.level >= this.maxLevel) return 1;
-    return Math.min(1, this.prog / (this.levelHp * Math.pow(1.6, this.level - 1)));
+    if (this.maxed) return 1;
+    return Math.min(1, this.prog / (this.levelHp * Math.pow(1.6, this.own)));
   }
 
   /** แคปซูลแตก → ทหารวิ่งไปยืนรอใน Collect Area */

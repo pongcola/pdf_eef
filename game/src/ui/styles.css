@@ -1666,14 +1666,39 @@ body {
 }
 
 .gauge .g-ic {
+  position: relative;
   display: grid;
   place-items: center;
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   border-radius: 12px;
   border: 3px solid var(--ink);
   background: var(--panel);
   font-size: 20px;
+}
+
+.gauge .g-ic b {
+  position: absolute;
+  right: -10px;
+  bottom: -8px;
+  min-width: 22px;
+  padding: 0 4px;
+  border-radius: 999px;
+  border: 2px solid var(--ink);
+  background: #fff;
+  color: var(--ink);
+  font-size: 14px;
+  text-align: center;
+}
+
+.gauge .g-next {
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 2px solid var(--ink);
+  background: #8ff0c6;
+  color: var(--ink);
+  font-weight: 800;
+  font-size: 13px;
 }
 
 .gauge .g-bar {
@@ -1694,16 +1719,6 @@ body {
   height: 0;
   background: repeating-linear-gradient(-45deg, #ffd23f 0 8px, #ff9e3d 8px 16px);
   transition: height 0.15s;
-}
-
-.gauge .g-n {
-  padding: 0 8px;
-  border-radius: 999px;
-  border: 2px solid var(--ink);
-  background: #8ff0c6;
-  color: var(--ink);
-  font-weight: 800;
-  font-size: 15px;
 }
 
 .gauge.pulse .g-ic {

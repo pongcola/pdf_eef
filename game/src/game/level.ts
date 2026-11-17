@@ -163,7 +163,7 @@ export function generateLevel(level: number, player: PlayerStats): LevelData {
     ['cage', 2.2],
     ['stat', 1.6],
     ['recruit', hard >= 2 ? 1.3 : 0],
-    ['enemies', hard >= 3 ? 1.6 : 0],
+    ['enemies', hard >= 4 ? 1.4 : 0],
     ['hazard', hard >= 4.5 ? 0.9 : 0],
   ];
 
@@ -227,7 +227,8 @@ export function generateLevel(level: number, player: PlayerStats): LevelData {
       }
       case 'recruit': {
         const side = rng() < 0.5 ? -1 : 1;
-        const maxLevel = Math.min(MAX_TIER, 3 + Math.floor(inEra / 2));
+        // ยิงแท่นจนแถบเต็ม → Level +1 สูงสุด 5
+        const maxLevel = MAX_TIER;
         const tier = Math.min(maxLevel, 2);
         const collectW = TRACK_WIDTH * (rng() < 0.5 ? 0.5 : 0.62);
         items.push({
@@ -248,7 +249,8 @@ export function generateLevel(level: number, player: PlayerStats): LevelData {
         break;
       }
       case 'enemies': {
-        const count = Math.min(10, 2 + Math.floor(rng() * 3) + Math.floor(hard / 4));
+        // ศัตรูปาอาวุธใส่ (โดนแล้วตาย 1 ตัว) จึงมีน้อยกว่าเดิม
+        const count = Math.min(6, 2 + Math.floor(rng() * 2) + Math.floor(hard / 5));
         const hp = Math.max(1, Math.round(dmgRef * powMul * 2 * relief));
         items.push({ type: 'enemies', d, x: (rng() - 0.5) * 3, count, hp });
         troops = Math.max(1, troops - count * 0.15);
