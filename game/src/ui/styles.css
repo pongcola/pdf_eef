@@ -1097,9 +1097,12 @@ img.ico {
   border-color: var(--gold);
 }
 
-.tl-row.locked .tl-card,
-.tl-row.next .tl-card {
+.tl-row.locked .tl-card {
   filter: grayscale(0.7) brightness(0.65);
+}
+
+.tl-row.next .tl-card {
+  filter: grayscale(0.35) brightness(0.85);
 }
 
 .tl-row.fresh .tl-card {

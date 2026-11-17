@@ -840,8 +840,8 @@ export class Game {
         const dx = this.squad.x - u.x;
         const dz = this.squad.z - u.z;
         const d = Math.hypot(dx, dz) || 1;
-        u.x += (dx / d) * 4.5 * dt;
-        u.z += (dz / d) * 4.5 * dt;
+        u.x += (dx / d) * 3.6 * dt;
+        u.z += (dz / d) * 3.6 * dt;
         if (u.z > this.squad.z + 4) u.alive = false;
         // ชนขอบฝูง (วงรี)
         const inside = (dx / (rx + 0.1)) ** 2 + (dz / (rz + 0.1)) ** 2 < 1;

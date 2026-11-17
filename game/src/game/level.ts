@@ -223,7 +223,7 @@ export function generateLevel(level: number, player: PlayerStats): LevelData {
         break;
       }
       case 'enemies': {
-        const count = Math.min(12, 2 + Math.floor(rng() * 3) + Math.floor(hard / 3));
+        const count = Math.min(10, 2 + Math.floor(rng() * 3) + Math.floor(hard / 4));
         const hp = Math.max(1, Math.round(dmgRef * powMul * 2 * relief));
         items.push({ type: 'enemies', d, x: (rng() - 0.5) * 3, count, hp });
         troops = Math.max(1, troops - count * 0.15);
