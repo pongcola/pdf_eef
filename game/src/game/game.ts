@@ -31,6 +31,7 @@ import {
   capacity,
   capacityProgress,
   capsuleStartCount,
+  MAX_CAPSULES,
   incomeMult,
   loseReward,
   META,
@@ -117,9 +118,9 @@ interface EnemyGroup {
 
 const BOSS_STOP = 10.5;
 
-/** จำนวนครั้งที่ต้องยิงโดนก้อนหินเพื่อให้หลอดซ้ายเต็ม ที่ Level นั้นๆ */
-function gaugeHits(level: number): number {
-  return Math.round(15 * Math.pow(1.35, level - 1));
+/** จำนวนครั้งที่ต้องยิงโดนก้อนหินเพื่อให้หลอดซ้ายเต็ม เมื่อแท่นมีแคปซูลเพิ่มมาแล้ว extra ช่อง */
+function gaugeHits(extra: number): number {
+  return Math.round(15 * Math.pow(1.35, extra));
 }
 
 /** เป้าของสกิลฮีโร่ */
@@ -201,8 +202,8 @@ export class Game {
   private gaugeGain = 1;
   /** ดาเมจที่ต้องยิงใส่หอหินเพื่อให้เกจเต็ม 1 ครั้ง */
   private gaugeNeed = 1;
-  /** Level ทหารในแคปซูลจากหลอดซ้าย */
-  private capLevel = 1;
+  /** แท่นแคปซูลถัดไป (ที่หลอดซ้ายเติมแคปซูลให้) */
+  private gaugePad: RecruitPad | null = null;
   private enemyShots: EnemyShot[] = [];
   private ramT = 0;
   private hero: HeroModel | null = null;
@@ -450,8 +451,8 @@ export class Game {
     this.income = incomeMult(up.economy);
     // เกจซ้ายเริ่มต้นตามแถบความคืบหน้าของอัปเกรดความจุ + ค่ายฝึก
     this.gauge = Math.min(0.95, capacityProgress(up.capacity) + meta.logistics * 0.1);
-    this.capLevel = 1;
-    this.gaugeNeed = gaugeHits(1);
+    this.gaugePad = null;
+    this.gaugeNeed = gaugeHits(0);
     for (const sh of this.enemyShots) sh.mesh.visible = false;
     for (const sh of this.enemyShots) sh.alive = false;
     this.dist = 0;
@@ -683,6 +684,7 @@ export class Game {
       if (this.squad.count === 0) return this.lose();
       this.checkGates();
       this.checkPads();
+      this.syncGaugePad();
       this.checkCash();
       this.updateEnemies(dt);
       if (this.squad.count === 0) return this.lose();
@@ -884,22 +886,49 @@ export class Game {
     this.ui.coinPop(`เต็ม +${v}`, p.x, p.y);
   }
 
-  /** หลอดซ้าย: ยิงโดนก้อนหิน 1 ครั้ง = 1 แต้ม เต็มแล้วทหารในแคปซูล Level +1 (เต็มยากขึ้นทุก Level) */
+  /** แท่นแคปซูลข้างหน้าที่ยังไม่ได้ผ่าน */
+  private nextPad(): RecruitPad | null {
+    let best: RecruitPad | null = null;
+    for (const p of this.pads) if (!p.collected && p.z < this.squad.z + 1 && (!best || p.z > best.z)) best = p;
+    return best;
+  }
+
+  /** ผ่านแท่นไปแล้ว → แท่นถัดไปกลับมาเป็นจำนวนแคปซูลตั้งต้น หลอดซ้ายเริ่มใหม่ */
+  private syncGaugePad(): void {
+    const p = this.nextPad();
+    if (p === this.gaugePad) return;
+    const first = this.gaugePad === null;
+    this.gaugePad = p;
+    if (!first) this.gauge = 0;
+    this.gaugeNeed = gaugeHits(p ? p.capsules.length - p.baseCount : 0);
+  }
+
+  private get gaugeMaxed(): boolean {
+    const p = this.gaugePad;
+    return !p || p.capsules.length >= MAX_CAPSULES;
+  }
+
+  /** หลอดซ้าย: ยิงโดนก้อนหิน 1 ครั้ง = 1 แต้ม เต็มแล้วแท่นถัดไปได้แคปซูล +1 (สูงสุด 5, เต็มยากขึ้นทุกครั้ง) */
   private addGauge(hits: number): void {
-    if (this.state !== 'run' || this.capLevel >= MAX_TIER) return;
+    if (this.state !== 'run') return;
+    this.syncGaugePad();
+    const p = this.gaugePad;
+    if (!p || this.gaugeMaxed) return;
     this.gauge += (hits * this.gaugeGain) / this.gaugeNeed;
-    while (this.gauge >= 1 && this.capLevel < MAX_TIER) {
+    while (this.gauge >= 1 && !this.gaugeMaxed) {
       this.gauge -= 1;
-      this.capLevel++;
-      this.gaugeNeed = gaugeHits(this.capLevel);
-      for (const p of this.pads) if (!p.collected) p.addBonus();
-      const q = this.project(this.squad.x, 2.6, this.squad.z);
-      this.ui.floatText(`แคปซูล Level ${this.capLevel}!`, q.x, q.y, true);
+      for (const c of p.setCount(p.capsules.length + 1)) {
+        this.targets.push(c);
+        this.particles.burst(c.x, 1.2, c.z, 0x7fdcff, 12, 4, 0.12, 0.6);
+      }
+      this.gaugeNeed = gaugeHits(p.capsules.length - p.baseCount);
+      const q = this.project(p.x, 2.6, p.z);
+      this.ui.floatText(`แคปซูล +1!`, q.x, q.y, true);
       this.ui.pulseGauge();
       sfx.gateGood();
       buzz('medium');
     }
-    if (this.capLevel >= MAX_TIER) this.gauge = 1;
+    if (this.gaugeMaxed) this.gauge = 1;
   }
 
   /** เก็บเงินระหว่างทาง (คูณอัปเกรดรายได้) */
@@ -951,7 +980,25 @@ export class Game {
 
   private troopCollisions(): void {
     const r = this.squad.radiusZ();
-    const solid: Target[] = [...this.blocks, ...this.cages];
+    // ชนก้อนหิน: ทหารไม่ตาย แต่ก้อนหินหายไป
+    for (const b of this.blocks) {
+      if (!b.alive || Math.abs(b.z - this.squad.z) > r + 1.6) continue;
+      for (const tr of this.squad.troops) {
+        const wx = this.clampX(this.squad.x + tr.ox);
+        const wz = this.squad.z + tr.oz;
+        if (Math.abs(wx - b.x) < b.halfW + 0.15 && Math.abs(wz - b.z) < b.halfD + 0.2) {
+          b.alive = false;
+          b.group.visible = false;
+          b.label?.remove();
+          b.label = null;
+          this.particles.burst(b.x, 1, b.z, 0x9a8f80, 18, 6, 0.2, 0.9);
+          sfx.breakBlock();
+          buzz('light');
+          break;
+        }
+      }
+    }
+    const solid: Target[] = [...this.cages];
     for (const b of solid) {
       if (!b.alive || Math.abs(b.z - this.squad.z) > r + 1.6) continue;
       for (let i = this.squad.troops.length - 1; i >= 0; i--) {
@@ -1653,7 +1700,7 @@ export class Game {
   }
 
   private updateHud(): void {
-    this.ui.setGauge(this.gauge, this.capLevel, this.capLevel >= MAX_TIER);
+    this.ui.setGauge(this.gauge, this.gaugePad?.capsules.length ?? 0, this.gaugeMaxed);
     this.ui.setHudStats({
       coins: this.collected,
       troops: this.squad.count,

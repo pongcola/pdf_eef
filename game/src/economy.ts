@@ -57,13 +57,14 @@ export function capacity(_lvl: number, _m: MetaLevels): number {
 }
 
 /** จำนวนแคปซูลบนแท่นตอนเริ่มด่าน (อัปเกรดความจุทุก 10 ระดับ +1, สูงสุด 5) */
+export const MAX_CAPSULES = 5;
 export function capsuleStartCount(lvl: number): number {
-  return Math.min(5, 2 + Math.floor(lvl / 10));
+  return Math.min(MAX_CAPSULES, 1 + Math.floor(lvl / 10));
 }
 
 /** ความคืบหน้าไปสู่แคปซูลช่องถัดไป (0–1) = เกจซ้ายตอนเริ่มด่าน */
 export function capacityProgress(lvl: number): number {
-  return capsuleStartCount(lvl) >= 5 ? 0 : (lvl % 10) / 10;
+  return capsuleStartCount(lvl) >= MAX_CAPSULES ? 0 : (lvl % 10) / 10;
 }
 
 export function playerPower(lvl: number, m: MetaLevels): number {

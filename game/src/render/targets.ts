@@ -409,6 +409,8 @@ export class RecruitPad {
   readonly collectZ: number;
   readonly collectHalfW: number;
   collected = false;
+  /** จำนวนแคปซูลตั้งต้น (ก่อนหลอดซ้ายเติม) */
+  readonly baseCount: number;
   label: HTMLElement | null = null;
   private readonly strip: Group;
 
@@ -434,6 +436,7 @@ export class RecruitPad {
     this.group.add(wall);
     this.body = new PadBody(this);
     this.capsuleHp = capsuleHp;
+    this.baseCount = Math.min(5, count);
     this.setCount(count);
     // Collect Area: แถบสีฟ้าบนถนนข้างหน้า
     this.strip = new Group();
@@ -451,17 +454,8 @@ export class RecruitPad {
     this.group.add(this.strip);
   }
 
-  /** Level ที่ได้จากหลอดซ้าย (ยิงก้อนหิน) */
-  bonus = 0;
   get level(): number {
-    return Math.min(MAX_TIER, this.maxLevel, 1 + this.own + this.bonus);
-  }
-
-  /** หลอดซ้ายเต็ม → ทหารในแคปซูล Level +1 */
-  addBonus(): void {
-    if (this.maxed) return;
-    this.bonus++;
-    this.refreshTier();
+    return Math.min(MAX_TIER, this.maxLevel, 1 + this.own);
   }
 
   get maxed(): boolean {
