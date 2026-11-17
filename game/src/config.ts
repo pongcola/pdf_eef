@@ -33,8 +33,8 @@ export const COINS_PER_STAR = 400;
 export const BASE_FIRE_RATE = 2.2; // นัด/วินาที ต่อทหาร 1 ตัว
 export const BASE_RANGE = 13; // ระยะยิง
 export const PROJECTILE_SPEED = 26;
-/** ระดับทหาร 1–5: แรงกว่าปกติกี่เท่า */
-export const TIER_DAMAGE = [1, 1.8, 3, 5, 8];
+/** ระดับทหารในแคปซูล 1–10: แรงกว่าปกติกี่เท่า */
+export const TIER_DAMAGE = [1, 1.6, 2.4, 3.5, 5, 7, 9.5, 12.5, 16, 20];
 export const MAX_TIER = TIER_DAMAGE.length;
 
 /** บอส */

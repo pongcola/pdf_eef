@@ -227,7 +227,7 @@ export function generateLevel(level: number, player: PlayerStats): LevelData {
       }
       case 'recruit': {
         const side = rng() < 0.5 ? -1 : 1;
-        // ยิงแท่นจนแถบเต็ม → Level +1 สูงสุด 5
+        // ยิงแท่นจนแถบเต็ม → Level +1 สูงสุด 10
         const maxLevel = MAX_TIER;
         const tier = Math.min(maxLevel, 2);
         const collectW = TRACK_WIDTH * (rng() < 0.5 ? 0.5 : 0.62);

@@ -1728,7 +1728,8 @@ body {
 /* ---------- ป้าย Level เหนือแท่นทหาร ---------- */
 .label.pad {
   position: absolute;
-  min-width: 112px;
+  min-width: 132px;
+  white-space: nowrap;
   padding: 1px 10px;
   border-radius: 8px;
   border: 2px solid var(--ink);

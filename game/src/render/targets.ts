@@ -490,7 +490,7 @@ export class RecruitPad {
   addProgress(dmg: number): boolean {
     if (this.maxed) return false;
     this.prog += dmg;
-    const need = this.levelHp * Math.pow(1.6, this.own);
+    const need = this.levelHp * Math.pow(1.3, this.own);
     if (this.prog < need) return false;
     this.prog -= need;
     this.own++;
@@ -504,7 +504,7 @@ export class RecruitPad {
 
   levelFrac(): number {
     if (this.maxed) return 1;
-    return Math.min(1, this.prog / (this.levelHp * Math.pow(1.6, this.own)));
+    return Math.min(1, this.prog / (this.levelHp * Math.pow(1.3, this.own)));
   }
 
   /** แคปซูลแตก → ทหารวิ่งไปยืนรอใน Collect Area */
