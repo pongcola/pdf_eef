@@ -1648,3 +1648,8 @@ body {
   font-size: 16px;
   text-shadow: none;
 }
+
+.subtitle {
+  display: table;
+  margin: 4px auto 0;
+}
