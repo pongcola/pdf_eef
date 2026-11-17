@@ -30,7 +30,7 @@ export const ELITE_DAMAGE = 2.5;
 
 /** บอส */
 export const BOSS_STOMP_INTERVAL = 1.7;
-export const BOSS_STOMP_KILL = 0.12;
+export const BOSS_STOMP_KILL = 0.1;
 
 /** โอกาสที่วงล้อคูณรางวัลจะโผล่หลังชนะ (0–1) */
 export const WHEEL_CHANCE = 0.4;

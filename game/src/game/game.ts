@@ -640,7 +640,11 @@ export class Game {
     this.ui.coinPop(`เต็ม +${elite ? 8 : 3}`, p.x, p.y);
   }
 
-  private killTroop(i: number): void {
+  /** สถิติการตายของทหาร (ใช้ตรวจความยาก) */
+  readonly deaths = { block: 0, hazard: 0, enemy: 0, boss: 0 };
+
+  private killTroop(i: number, cause: 'block' | 'hazard' | 'enemy' | 'boss'): void {
+    this.deaths[cause]++;
     const tr = this.squad.troops[i];
     const wx = this.clampX(this.squad.x + tr.ox);
     const wz = this.squad.z + tr.oz;
@@ -651,7 +655,7 @@ export class Game {
   }
 
   private troopCollisions(): void {
-    const r = this.squad.radius();
+    const r = this.squad.radiusZ();
     const solid: Target[] = [...this.blocks, ...this.cages];
     for (const b of solid) {
       if (!b.alive || Math.abs(b.z - this.squad.z) > r + 1.6) continue;
@@ -660,7 +664,7 @@ export class Game {
         const wx = this.clampX(this.squad.x + tr.ox);
         const wz = this.squad.z + tr.oz;
         if (Math.abs(wx - b.x) < b.halfW + 0.15 && Math.abs(wz - b.z) < b.halfD + 0.2) {
-          this.killTroop(i);
+          this.killTroop(i, 'block');
           if (b.hit(this.baseDmg * this.powMul * 3)) {
             this.onDestroyed(b);
             break;
@@ -673,7 +677,7 @@ export class Game {
       for (let i = this.squad.troops.length - 1; i >= 0; i--) {
         const tr = this.squad.troops[i];
         const wx = this.clampX(this.squad.x + tr.ox);
-        if (h.hits(wx, this.squad.z + tr.oz)) this.killTroop(i);
+        if (h.hits(wx, this.squad.z + tr.oz)) this.killTroop(i, 'hazard');
       }
     }
   }
@@ -704,7 +708,7 @@ export class Game {
   }
 
   private checkPads(): void {
-    const r = this.squad.radius();
+    const r = this.squad.radiusX();
     for (const p of this.pads) {
       if (p.collected || this.squad.z > p.z) continue;
       p.collected = true;
@@ -726,7 +730,8 @@ export class Game {
   }
 
   private updateEnemies(dt: number): void {
-    const r = this.squad.radius();
+    const rx = this.squad.radiusX();
+    const rz = this.squad.radiusZ();
     for (const g of this.enemies) {
       if (!g.charging) {
         if (g.z - this.squad.z > -13) {
@@ -742,7 +747,9 @@ export class Game {
         u.x += (dx / d) * 4.5 * dt;
         u.z += (dz / d) * 4.5 * dt;
         if (u.z > this.squad.z + 4) u.alive = false;
-        if (d < r + 0.1 && this.squad.count) {
+        // ชนขอบฝูง (วงรี)
+        const inside = (dx / (rx + 0.1)) ** 2 + (dz / (rz + 0.1)) ** 2 < 1;
+        if (inside && this.squad.count) {
           // ชนแล้วตายทั้งคู่: เลือกทหารที่ใกล้ที่สุด
           let bi = 0;
           let bd = Infinity;
@@ -754,7 +761,7 @@ export class Game {
               bi = i;
             }
           }
-          this.killTroop(bi);
+          this.killTroop(bi, 'enemy');
           u.alive = false;
           this.particles.burst(u.x, 0.6, u.z, ENEMY_COLOR, 6, 4);
         }
@@ -763,13 +770,13 @@ export class Game {
   }
 
   private blockedByCrystal(): boolean {
-    const r = this.squad.radius();
-    const front = this.squad.z - r * 0.8;
+    const front = this.squad.z - this.squad.radiusZ() * 0.8;
+    const rx = this.squad.radiusX();
     for (const c of this.crystals) {
       if (!c.alive) continue;
       const gap = front - (c.z + c.halfD);
       if (gap < -1 || gap > 0.2) continue;
-      if (Math.abs(c.x - this.squad.x) < c.halfW + r * 0.7) return true;
+      if (Math.abs(c.x - this.squad.x) < c.halfW + rx * 0.8) return true;
     }
     return false;
   }
@@ -806,8 +813,10 @@ export class Game {
     }
     if (boss.update(dt, this.t)) {
       const n = this.squad.count;
-      const kill = Math.min(n, Math.max(1, Math.ceil(n * BOSS_STOMP_KILL * (1 + this.bossTime / 10))));
-      for (let k = 0; k < kill; k++) this.killTroop(Math.floor(Math.random() * this.squad.count));
+      // ฝูงเล็กเสียตามสัดส่วน (มีโอกาสไม่เสียเลย) บอสยิ่งสู้นานยิ่งแรง
+      const exp = n * BOSS_STOMP_KILL * (1 + this.bossTime / 10);
+      const kill = Math.min(n, Math.floor(exp) + (Math.random() < exp % 1 ? 1 : 0));
+      for (let k = 0; k < kill; k++) this.killTroop(Math.floor(Math.random() * this.squad.count), 'boss');
       sfx.stomp();
       buzz('heavy');
       this.shake = 0.35;
@@ -930,10 +939,9 @@ export class Game {
     }
     sw.end();
     ew.end();
-    const r = this.squad.radius();
     this.shadow.visible = this.squad.count > 0;
     this.shadow.position.set(sx, 0.02, sz);
-    this.shadow.scale.setScalar(r * 1.1);
+    this.shadow.scale.set(this.squad.radiusX() * 1.2, this.squad.radiusZ() * 1.1, 1);
 
     for (const g of this.enemies) {
       const near = Math.abs(g.z - sz) < 90;
@@ -971,7 +979,7 @@ export class Game {
       look.set(0, 0.8, this.squad.z - 4);
       return;
     }
-    const r = Math.min(this.squad.radius(), 4);
+    const r = Math.min(this.squad.radiusZ() * 0.7, 4);
     const cx = this.squad.x * 0.4;
     pos.set(cx, (6.4 + r * 0.8) * f, this.squad.z + (8.2 + r * 1.0) * f);
     look.set(cx, 0.6, this.squad.z - 8);
@@ -1017,7 +1025,7 @@ export class Game {
   private updateLabels(dt: number): void {
     const playing = this.state === 'run' || this.state === 'bonus' || this.state === 'boss' || this.state === 'paused' || this.state === 'menu';
     if (playing && this.squad.count > 0) {
-      const p = this.project(this.squad.x, 1.8 + Math.min(1.2, this.squad.radius() * 0.25), this.squad.z);
+      const p = this.project(this.squad.x, 1.9, this.squad.z - this.squad.radiusZ() * 0.4);
       this.ui.setCrowdLabel(this.squad.count, p.x, p.y, p.vis);
     } else {
       this.ui.setCrowdLabel(0, 0, 0, false);

@@ -1,15 +1,18 @@
 import { TRACK_WIDTH, UNIT_SPACING } from '../config.ts';
 
 const GOLDEN = Math.PI * (3 - Math.sqrt(5));
+/** ฝูงเป็นวงรี: แคบด้านข้าง ยาวไปด้านหลัง จะได้ลอดช่องระหว่างสิ่งกีดขวางได้ */
+const SX = 0.62;
+const SZ = 1.45;
 
 export function formationOffset(i: number, spacing = UNIT_SPACING): [number, number] {
   const r = spacing * Math.sqrt(i + 0.5);
   const a = i * GOLDEN + Math.PI / 2;
-  return [Math.cos(a) * r, Math.sin(a) * r];
+  return [Math.cos(a) * r * SX, Math.sin(a) * r * SZ];
 }
 
-export function formationRadius(n: number, spacing = UNIT_SPACING): number {
-  return spacing * Math.sqrt(Math.max(1, n)) + 0.35;
+function baseRadius(n: number, spacing = UNIT_SPACING): number {
+  return spacing * Math.sqrt(Math.max(1, n));
 }
 
 export interface Troop {
@@ -50,12 +53,18 @@ export class Squad {
     return n;
   }
 
-  radius(): number {
-    return formationRadius(this.troops.length);
+  /** ครึ่งความกว้างของฝูง */
+  radiusX(): number {
+    return baseRadius(this.troops.length) * SX + 0.3;
+  }
+
+  /** ครึ่งความยาวของฝูง (หน้า-หลัง) */
+  radiusZ(): number {
+    return baseRadius(this.troops.length) * SZ + 0.3;
   }
 
   maxX(): number {
-    return Math.max(0.5, TRACK_WIDTH / 2 - 0.45 - this.radius() * 0.85);
+    return Math.max(0.5, TRACK_WIDTH / 2 - 0.4 - this.radiusX() * 0.9);
   }
 
   /** เพิ่มทหารที่วิ่งมาจากตำแหน่ง (wx, wz) ในโลก */
