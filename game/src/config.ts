@@ -30,7 +30,10 @@ export const ERA_START_COINS = 100;
 export const COINS_PER_STAR = 400;
 
 /** การยิง */
-export const BASE_FIRE_RATE = 2.2; // นัด/วินาที ต่อทหาร 1 ตัว
+export const BASE_FIRE_RATE = 1.3; // นัด/วินาที ต่อทหาร 1 ตัว
+/** อัตรายิงที่ใช้ตั้งสมดุลเดิม (ใช้ชดเชยค่าที่คิดเป็น "ต่อนัด") */
+export const FIRE_RATE_REF = 2.2;
+export const FIRE_RATE_SCALE = BASE_FIRE_RATE / FIRE_RATE_REF;
 export const BASE_RANGE = 13; // ระยะยิง
 export const PROJECTILE_SPEED = 26;
 /** ระดับทหารในแคปซูล 1–10: แรงกว่าปกติกี่เท่า */

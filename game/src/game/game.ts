@@ -12,6 +12,7 @@ import {
 } from 'three';
 import {
   BASE_FIRE_RATE,
+  FIRE_RATE_SCALE,
   BASE_RANGE,
   BOSS_STOMP_INTERVAL,
   BOSS_STOMP_KILL,
@@ -209,7 +210,6 @@ export class Game {
   private t = 0;
   private dist = 0;
   private speed = 0;
-  private stuckT = 0;
   private bonusT = 0;
   private bossHp = 0;
   private stompTimer = 0;
@@ -455,7 +455,6 @@ export class Game {
     this.speed = 0;
     this.t = 0;
     this.shake = 0;
-    this.stuckT = 0;
     this.bonusT = 0;
     this.reachedCastle = false;
     this.snapCamera();
@@ -646,12 +645,6 @@ export class Game {
     // ---- เคลื่อนที่ ----
     let target = RUN_SPEED;
     if (this.state === 'boss' && this.dist >= L.endD - BOSS_STOP) target = 0;
-    if (this.state === 'bonus') {
-      if (this.blockedByCrystal()) {
-        target = 0;
-        this.stuckT += dt;
-      } else this.stuckT = 0;
-    }
     this.speed += (target - this.speed) * (1 - Math.exp(-dt * (target === 0 ? 14 : 5)));
     if (this.state === 'boss') this.dist = Math.min(this.dist + this.speed * dt, L.endD - BOSS_STOP);
     else this.dist += this.speed * dt;
@@ -683,14 +676,19 @@ export class Game {
       }
     } else if (this.state === 'bonus') {
       this.bonusT += dt;
-      if (this.dist >= L.endD - 3) {
+      // ทุ่งหอคอย: เดินชนหอคอยแล้วทหารตัวที่ชนตาย ทหารหมดก็ถือว่าผ่านด่าน (ข้ามเส้นชัยมาแล้ว)
+      this.troopCollisions();
+      this.checkCash();
+      if (this.squad.count === 0) {
+        this.win();
+      } else if (this.dist >= L.endD - 3) {
         this.reachedCastle = true;
         const bonus = Math.round(40 * L.hard);
         this.collected += bonus;
         const p = this.project(0, 4, -L.endD);
         this.ui.floatText(`ทะลวงปราสาท! +${bonus}`, p.x, p.y, true);
         this.win();
-      } else if (this.stuckT > 2.6 || this.bonusT > 35) {
+      } else if (this.bonusT > 40) {
         this.win();
       }
     } else {
@@ -777,7 +775,7 @@ export class Game {
     if (!best.alive) return;
     if (best instanceof StatGate) {
       // ค่าเพิ่มตามระดับทหารที่ยิง (ไม่ขึ้นกับพลังโจมตี)
-      const gain = (3 * dmg) / Math.max(0.0001, this.baseDmg * this.powMul);
+      const gain = (3 * dmg) / Math.max(0.0001, this.baseDmg * this.powMul * FIRE_RATE_SCALE);
       best.shoot(dmg, gain);
       if (best.justBroke) {
         best.justBroke = false;
@@ -940,7 +938,7 @@ export class Game {
 
   private troopCollisions(): void {
     const r = this.squad.radiusZ();
-    const solid: Target[] = [...this.blocks, ...this.cages];
+    const solid: Target[] = this.state === 'bonus' ? this.crystals : [...this.blocks, ...this.cages];
     for (const b of solid) {
       if (!b.alive || Math.abs(b.z - this.squad.z) > r + 1.6) continue;
       for (let i = this.squad.troops.length - 1; i >= 0; i--) {
@@ -949,7 +947,7 @@ export class Game {
         const wz = this.squad.z + tr.oz;
         if (Math.abs(wx - b.x) < b.halfW + 0.15 && Math.abs(wz - b.z) < b.halfD + 0.2) {
           this.killTroop(i, 'block');
-          if (b.hit(this.baseDmg * this.powMul * 3)) {
+          if (b.hit(this.baseDmg * this.powMul * 3 * FIRE_RATE_SCALE)) {
             this.onDestroyed(b);
             break;
           }
@@ -1122,7 +1120,7 @@ export class Game {
 
   /** ดาเมจพื้นฐานของสกิล = ดาเมจทหาร 1 นัด × ตัวคูณ Level */
   private heroBase(): number {
-    return this.baseDmg * this.powMul * heroMult(this.heroLvl);
+    return this.baseDmg * this.powMul * heroMult(this.heroLvl) * FIRE_RATE_SCALE;
   }
 
   private heroCandidates(range: number): HeroTarget[] {
@@ -1366,18 +1364,6 @@ export class Game {
     sfx.click();
     this.setupHero();
     this.ui.renderTeam(this.teamData());
-  }
-
-  private blockedByCrystal(): boolean {
-    const front = this.squad.z - this.squad.radiusZ() * 0.8;
-    const rx = this.squad.radiusX();
-    for (const c of this.crystals) {
-      if (!c.alive) continue;
-      const gap = front - (c.z + c.halfD);
-      if (gap < -1 || gap > 0.2) continue;
-      if (Math.abs(c.x - this.squad.x) < c.halfW + rx * 0.8) return true;
-    }
-    return false;
   }
 
   private startBonus(): void {

@@ -1,4 +1,4 @@
-import { BASE_FIRE_RATE, LANE_X, MAX_TIER, TIER_DAMAGE, TRACK_WIDTH } from '../config.ts';
+import { BASE_FIRE_RATE, FIRE_RATE_SCALE, LANE_X, MAX_TIER, TIER_DAMAGE, TRACK_WIDTH } from '../config.ts';
 import { eraIndexForLevel, eraOrdinal, isEraBossLevel, levelInEra, timelineForLevel } from '../eras.ts';
 import { makeRng, pick } from '../rng.ts';
 
@@ -251,7 +251,7 @@ export function generateLevel(level: number, player: PlayerStats): LevelData {
       case 'enemies': {
         // ศัตรูปาอาวุธใส่ (โดนแล้วตาย 1 ตัว) จึงมีน้อยกว่าเดิม
         const count = Math.min(6, 2 + Math.floor(rng() * 2) + Math.floor(hard / 5));
-        const hp = Math.max(1, Math.round(dmgRef * powMul * 2 * relief));
+        const hp = Math.max(1, Math.round(dmgRef * powMul * 2 * FIRE_RATE_SCALE * relief));
         items.push({ type: 'enemies', d, x: (rng() - 0.5) * 3, count, hp });
         troops = Math.max(1, troops - count * 0.15);
         break;
