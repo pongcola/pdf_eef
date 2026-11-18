@@ -206,8 +206,10 @@ export class Game {
   private gaugeGain = 1;
   /** ดาเมจที่ต้องยิงใส่หอหินเพื่อให้เกจเต็ม 1 ครั้ง */
   private gaugeNeed = 1;
-  /** แท่นแคปซูลถัดไป (ที่หลอดซ้ายเติมแคปซูลให้) */
-  private gaugePad: RecruitPad | null = null;
+  /** แคปซูลตั้งต้นต่อแท่น (อัปเกรดความจุ) */
+  private capBase = 1;
+  /** แคปซูลที่ได้เพิ่มจากหลอดซ้ายในสเตจนี้ */
+  private capBonus = 0;
   private enemyShots: EnemyShot[] = [];
   private ramT = 0;
   private hero: HeroModel | null = null;
@@ -459,7 +461,8 @@ export class Game {
     this.income = incomeMult(up.economy);
     // เกจซ้ายเริ่มต้นตามแถบความคืบหน้าของอัปเกรดความจุ + ค่ายฝึก
     this.gauge = Math.min(0.95, capacityProgress(up.capacity) + meta.logistics * 0.1);
-    this.gaugePad = null;
+    this.capBase = capsuleStartCount(up.capacity);
+    this.capBonus = 0;
     this.gaugeNeed = gaugeHits(0);
     for (const sh of this.enemyShots) sh.mesh.visible = false;
     for (const sh of this.enemyShots) sh.alive = false;
@@ -694,12 +697,12 @@ export class Game {
       if (this.squad.count === 0) return this.lose();
       this.checkGates();
       this.checkPads();
-      this.syncGaugePad();
       this.checkCash();
       this.updateEnemies(dt);
       if (this.squad.count === 0) return this.lose();
       while (this.stage < L.stageD.length - 2 && this.dist >= L.stageD[this.stage + 1]) {
         this.stage++;
+        this.resetCapStage();
         const n = this.deliverPending();
         this.ui.toast(`สเตจ ${this.stage + 1}/${STAGES_PER_ERA}${n ? ` • ทหาร +${n}` : ''}`);
       }
@@ -899,43 +902,53 @@ export class Game {
   }
 
   /** แท่นแคปซูลข้างหน้าที่ยังไม่ได้ผ่าน */
-  private nextPad(): RecruitPad | null {
-    let best: RecruitPad | null = null;
-    for (const p of this.pads) if (!p.collected && p.z < this.squad.z + 1 && (!best || p.z > best.z)) best = p;
-    return best;
+  /** สเตจของแท่น (0 = สเตจ 1) */
+  private padStage(p: RecruitPad): number {
+    const d = -p.z;
+    const sd = this.level.stageD;
+    let st = 0;
+    while (st < sd.length - 2 && d >= sd[st + 1]) st++;
+    return st;
   }
 
-  /** ผ่านแท่นไปแล้ว → แท่นถัดไปกลับมาเป็นจำนวนแคปซูลตั้งต้น หลอดซ้ายเริ่มใหม่ */
-  private syncGaugePad(): void {
-    const p = this.nextPad();
-    if (p === this.gaugePad) return;
-    const first = this.gaugePad === null;
-    this.gaugePad = p;
-    if (!first) this.gauge = 0;
-    this.gaugeNeed = gaugeHits(p ? p.capsules.length - p.baseCount : 0);
+  /** จำนวนแคปซูลต่อแท่นในสเตจนี้ (ตั้งต้น + จากหลอดซ้าย) */
+  private get capCount(): number {
+    return Math.min(MAX_CAPSULES, this.capBase + this.capBonus);
   }
 
   private get gaugeMaxed(): boolean {
-    const p = this.gaugePad;
-    return !p || p.capsules.length >= MAX_CAPSULES;
+    return this.capCount >= MAX_CAPSULES;
   }
 
-  /** หลอดซ้าย: ยิงโดนก้อนหิน 1 ครั้ง = 1 แต้ม เต็มแล้วแท่นถัดไปได้แคปซูล +1 (สูงสุด 5, เต็มยากขึ้นทุกครั้ง) */
-  private addGauge(hits: number): void {
-    if (this.state !== 'run') return;
-    this.syncGaugePad();
-    const p = this.gaugePad;
-    if (!p || this.gaugeMaxed) return;
-    this.gauge += (hits * this.gaugeGain) / this.gaugeNeed;
-    while (this.gauge >= 1 && !this.gaugeMaxed) {
-      this.gauge -= 1;
-      for (const c of p.setCount(p.capsules.length + 1)) {
+  /** ตั้งจำนวนแคปซูลให้ทุกแท่นในสเตจปัจจุบันที่ยังไม่ผ่าน */
+  private applyCapCount(): void {
+    for (const p of this.pads) {
+      if (p.collected || this.padStage(p) !== this.stage) continue;
+      for (const c of p.setCount(this.capCount)) {
         this.targets.push(c);
         this.particles.burst(c.x, 1.2, c.z, 0x7fdcff, 12, 4, 0.12, 0.6);
       }
-      this.gaugeNeed = gaugeHits(p.capsules.length - p.baseCount);
-      const q = this.project(p.x, 2.6, p.z);
-      this.ui.floatText(`แคปซูล +1!`, q.x, q.y, true);
+    }
+  }
+
+  /** เริ่มสเตจใหม่: จำนวนแคปซูลกลับเป็นค่าตั้งต้น หลอดซ้ายเริ่มใหม่ */
+  private resetCapStage(): void {
+    this.capBonus = 0;
+    this.gauge = 0;
+    this.gaugeNeed = gaugeHits(0);
+  }
+
+  /** หลอดซ้าย: ยิงโดนก้อนหิน 1 ครั้ง = 1 แต้ม เต็มแล้วทุกแท่นในสเตจนี้ได้แคปซูล +1 (สูงสุด 5, อยู่จนจบสเตจ) */
+  private addGauge(hits: number): void {
+    if (this.state !== 'run' || this.gaugeMaxed) return;
+    this.gauge += (hits * this.gaugeGain) / this.gaugeNeed;
+    while (this.gauge >= 1 && !this.gaugeMaxed) {
+      this.gauge -= 1;
+      this.capBonus++;
+      this.gaugeNeed = gaugeHits(this.capBonus);
+      this.applyCapCount();
+      const q = this.project(this.squad.x, 2.6, this.squad.z);
+      this.ui.floatText(`แคปซูล ${this.capCount} ใบ!`, q.x, q.y, true);
       this.ui.pulseGauge();
       sfx.gateGood();
       buzz('medium');
@@ -1733,7 +1746,7 @@ export class Game {
 
   private updateHud(): void {
     this.ui.setStage(this.stage + 1);
-    this.ui.setGauge(this.gauge, this.gaugePad?.capsules.length ?? 0, this.gaugeMaxed);
+    this.ui.setGauge(this.gauge, this.state === 'run' || this.state === 'menu' ? this.capCount : 0, this.gaugeMaxed);
     this.ui.setHudStats({
       coins: this.collected,
       troops: this.squad.count,
