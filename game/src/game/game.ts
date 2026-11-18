@@ -1,7 +1,12 @@
 import {
   AmbientLight,
   BoxGeometry,
+  CanvasTexture,
+  Group,
   Mesh,
+  MeshBasicMaterial,
+  PlaneGeometry,
+  SRGBColorSpace,
   MeshLambertMaterial,
   DirectionalLight,
   HemisphereLight,
@@ -60,6 +65,7 @@ import {
   BlockTarget,
   CageTarget,
   CapsuleTarget,
+  troopMesh,
   CashStack,
   CrystalTarget,
   PadBody,
@@ -119,6 +125,50 @@ interface EnemyGroup {
 }
 
 const BOSS_STOP = 10.5;
+
+/** ทหารจากแคปซูลที่ชนแตก: เดินไปยืนรอหลังเส้นแบ่งสเตจถัดไป */
+interface Waiter {
+  mesh: Mesh;
+  tier: number;
+  x: number;
+  z: number;
+  tx: number;
+  tz: number;
+  arrived: boolean;
+  /** สเตจที่ทหารเข้าฝูง (1 = สเตจ 2, 3 = ทุ่งหอคอย) */
+  joinStage: number;
+}
+
+/** เส้นแบ่งสเตจบนถนน */
+function makeStageLine(stageNo: number, z: number): Group {
+  const g = new Group();
+  const c = document.createElement('canvas');
+  c.width = 1024;
+  c.height = 128;
+  const x = c.getContext('2d')!;
+  x.fillStyle = '#3f8cff';
+  x.fillRect(0, 0, 1024, 128);
+  x.fillStyle = '#ffffff';
+  for (let i = 0; i < 1024; i += 64) {
+    x.fillRect(i, 0, 32, 14);
+    x.fillRect(i + 32, 114, 32, 14);
+  }
+  x.font = '800 72px Kanit, system-ui, sans-serif';
+  x.textAlign = 'center';
+  x.textBaseline = 'middle';
+  x.lineWidth = 10;
+  x.strokeStyle = '#1b3f8a';
+  x.strokeText(`สเตจ ${stageNo}`, 512, 66);
+  x.fillText(`สเตจ ${stageNo}`, 512, 66);
+  const tex = new CanvasTexture(c);
+  tex.colorSpace = SRGBColorSpace;
+  const m = new Mesh(new PlaneGeometry(TRACK_WIDTH, 1.25), new MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }));
+  m.rotation.x = -Math.PI / 2;
+  m.position.set(0, 0.04, z);
+  m.renderOrder = 1;
+  g.add(m);
+  return g;
+}
 /** ชนหอคอยแล้วทหารตายทีละตัว ทุกกี่วินาที */
 const TOWER_KILL_INTERVAL = 0.3;
 
@@ -236,8 +286,11 @@ export class Game {
   private reachedCastle = false;
   /** สเตจปัจจุบัน (0 = สเตจ 1) */
   private stage = 0;
-  /** ทหาร (Level) จากแคปซูลที่ชนแตก รอเข้าฝูงตอนเริ่มสเตจถัดไป */
-  private pendingTroops: number[] = [];
+  /** ทหารจากแคปซูลที่ชนแตก ยืนรอหลังเส้นแบ่งสเตจถัดไป */
+  private waiters: Waiter[] = [];
+  /** จำนวนที่ยืนรอต่อเส้น (ใช้จัดแถว) */
+  private waitSlots: number[] = [];
+  private stageLines: Group[] = [];
   private pendingReward = 0;
   private camPos = new Vector3(0, 8, 12);
   private camLook = new Vector3(0, 0, -6);
@@ -319,6 +372,7 @@ export class Game {
   private clearLevel(): void {
     this.world?.dispose();
     this.world = null;
+    this.clearWaiters();
     for (const t of this.targets) {
       t.dispose();
       t.label?.remove();
@@ -366,6 +420,12 @@ export class Game {
     const L = this.level;
     const era = L.era;
     this.world = new World(this.scene, ERAS[era], { finishD: L.finishD, endD: L.endD, arena: L.eraBoss }, L.hard * 31 + 7);
+    // เส้นแบ่งสเตจ 2 และ 3 (สเตจ 4 ใช้เส้นชัยเดิม)
+    for (let st = 1; st < L.stageD.length - 1; st++) {
+      const line = makeStageLine(st + 1, -L.stageD[st]);
+      this.scene.add(line);
+      this.stageLines.push(line);
+    }
 
     for (const it of L.items) {
       const z = -it.d;
@@ -473,7 +533,7 @@ export class Game {
     this.bonusT = 0;
     this.reachedCastle = false;
     this.stage = 0;
-    this.pendingTroops = [];
+    this.waitSlots = [];
     this.snapCamera();
   }
 
@@ -641,6 +701,7 @@ export class Game {
       for (const h of this.hazards) if (Math.abs(h.z - this.squad.z) < 90) h.update(this.t, dt);
       for (const t of this.targets) if (Math.abs(t.z - this.squad.z) < 90) t.update(dt, this.t);
       for (const c of this.cash) if (Math.abs(c.z - this.squad.z) < 90) c.update(this.t);
+      this.updateWaiters(dt);
       this.squad.update(dt);
       this.particles.update(dt);
     }
@@ -1036,10 +1097,10 @@ export class Game {
             c.label?.remove();
             c.label = null;
             c.shatter();
-            this.pendingTroops.push(p.level);
+            this.spawnWaiter(p, c);
             this.particles.burst(c.x, 1, c.z, 0xcff6ff, 14, 5, 0.12, 0.7);
             const q = this.project(c.x, 2.4, c.z);
-            this.ui.floatText(`+1 Lv.${p.level} รอสเตจถัดไป`, q.x, q.y, true);
+            this.ui.floatText(`+1 Lv.${p.level}`, q.x, q.y, true);
             sfx.breakBlock();
             buzz('light');
             break;
@@ -1107,18 +1168,88 @@ export class Game {
     }
   }
 
-  /** เริ่มสเตจใหม่: ทหารจากแคปซูลที่ชนแตกเข้าฝูง */
-  private deliverPending(): number {
-    const n = this.pendingTroops.length;
-    for (const tier of this.pendingTroops) {
-      this.addTroop(tier, this.squad.x + (Math.random() - 0.5) * 2, this.squad.z + 2 + Math.random() * 2);
+  /** ทหารจากแคปซูลเดินไปยืนรอหลังเส้นแบ่งสเตจถัดไป */
+  private spawnWaiter(p: RecruitPad, c: CapsuleTarget): void {
+    const joinStage = this.padStage(p) + 1;
+    const line = this.level.stageD[joinStage];
+    const i = (this.waitSlots[joinStage] = (this.waitSlots[joinStage] ?? 0) + 1) - 1;
+    const cols = 9;
+    const mesh = troopMesh(p.era, p.level, true);
+    mesh.position.set(c.x, 0.3, c.z);
+    this.scene.add(mesh);
+    this.waiters.push({
+      mesh,
+      tier: p.level,
+      x: c.x,
+      z: c.z,
+      // เรียงจากกลางออกไปซ้าย-ขวา: 0, +1, -1, +2, -2 ...
+      tx: (((i % cols) + 1) >> 1) * ((i % cols) % 2 ? 1 : -1) * 0.9,
+      tz: -(line + 1.3 + Math.floor(i / cols) * 0.8),
+      arrived: false,
+      joinStage,
+    });
+  }
+
+  private updateWaiters(dt: number): void {
+    for (const w of this.waiters) {
+      if (w.arrived) continue;
+      const dx = w.tx - w.x;
+      const dz = w.tz - w.z;
+      const d = Math.hypot(dx, dz);
+      const step = dt * 10;
+      if (d <= step) {
+        w.x = w.tx;
+        w.z = w.tz;
+        w.arrived = true;
+        w.mesh.rotation.y = 0;
+        w.mesh.position.y = 0;
+      } else {
+        w.x += (dx / d) * step;
+        w.z += (dz / d) * step;
+        w.mesh.rotation.y = Math.atan2(-dx, -dz);
+        w.mesh.position.y = 0.3 + Math.abs(Math.sin(this.t * 14)) * 0.12;
+      }
+      w.mesh.position.x = w.x;
+      w.mesh.position.z = w.z;
     }
-    this.pendingTroops = [];
+  }
+
+  /** ถึงเส้นแบ่งสเตจ: ทหารที่ยืนรอเข้าฝูง */
+  private deliverPending(): number {
+    let n = 0;
+    for (const w of this.waiters) {
+      if (w.joinStage !== this.stage) continue;
+      this.addTroop(w.tier, w.x, w.z);
+      w.mesh.removeFromParent();
+      w.mesh.geometry.dispose();
+      n++;
+    }
+    this.waiters = this.waiters.filter((w) => w.joinStage !== this.stage);
     if (n) {
       sfx.join();
       buzz('medium');
     }
     return n;
+  }
+
+  private clearWaiters(): void {
+    for (const w of this.waiters) {
+      w.mesh.removeFromParent();
+      w.mesh.geometry.dispose();
+    }
+    this.waiters = [];
+    for (const l of this.stageLines) {
+      l.removeFromParent();
+      l.traverse((o) => {
+        if (o instanceof Mesh) {
+          o.geometry.dispose();
+          const m = o.material as MeshBasicMaterial;
+          m.map?.dispose();
+          m.dispose();
+        }
+      });
+    }
+    this.stageLines = [];
   }
 
   private updateEnemies(dt: number): void {
