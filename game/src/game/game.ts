@@ -258,7 +258,7 @@ export class Game {
   private gaugeNeed = 1;
   /** แคปซูลตั้งต้นต่อแท่น (อัปเกรดความจุ) */
   private capBase = 1;
-  /** แคปซูลที่ได้เพิ่มจากหลอดซ้ายในสเตจนี้ */
+  /** แคปซูลที่ได้เพิ่มจากหลอดซ้าย (อยู่ตลอดรอบ) */
   private capBonus = 0;
   private enemyShots: EnemyShot[] = [];
   private ramT = 0;
@@ -763,7 +763,6 @@ export class Game {
       if (this.squad.count === 0) return this.lose();
       while (this.stage < L.stageD.length - 2 && this.dist >= L.stageD[this.stage + 1]) {
         this.stage++;
-        this.resetCapStage();
         const n = this.deliverPending();
         this.ui.toast(`สเตจ ${this.stage + 1}/${STAGES_PER_ERA}${n ? ` • ทหาร +${n}` : ''}`);
       }
@@ -972,7 +971,7 @@ export class Game {
     return st;
   }
 
-  /** จำนวนแคปซูลต่อแท่นในสเตจนี้ (ตั้งต้น + จากหลอดซ้าย) */
+  /** จำนวนแคปซูลต่อแท่น (ตั้งต้น + จากหลอดซ้าย) */
   private get capCount(): number {
     return Math.min(MAX_CAPSULES, this.capBase + this.capBonus);
   }
@@ -981,10 +980,10 @@ export class Game {
     return this.capCount >= MAX_CAPSULES;
   }
 
-  /** ตั้งจำนวนแคปซูลให้ทุกแท่นในสเตจปัจจุบันที่ยังไม่ผ่าน */
+  /** ตั้งจำนวนแคปซูลให้ทุกแท่นที่ยังไม่ผ่าน (อยู่ตลอดรอบ ไม่รีเซ็ตตอนขึ้นสเตจ) */
   private applyCapCount(): void {
     for (const p of this.pads) {
-      if (p.collected || this.padStage(p) !== this.stage) continue;
+      if (p.collected || p.capsules.some((c) => !c.alive)) continue;
       for (const c of p.setCount(this.capCount)) {
         this.targets.push(c);
         this.particles.burst(c.x, 1.2, c.z, 0x7fdcff, 12, 4, 0.12, 0.6);
@@ -992,14 +991,7 @@ export class Game {
     }
   }
 
-  /** เริ่มสเตจใหม่: จำนวนแคปซูลกลับเป็นค่าตั้งต้น หลอดซ้ายเริ่มใหม่ */
-  private resetCapStage(): void {
-    this.capBonus = 0;
-    this.gauge = 0;
-    this.gaugeNeed = gaugeHits(0);
-  }
-
-  /** หลอดซ้าย: ยิงโดนก้อนหิน 1 ครั้ง = 1 แต้ม เต็มแล้วทุกแท่นในสเตจนี้ได้แคปซูล +1 (สูงสุด 5, อยู่จนจบสเตจ) */
+  /** หลอดซ้าย: ยิงโดนก้อนหิน 1 ครั้ง = 1 แต้ม เต็มแล้วทุกแท่นที่ยังไม่ผ่านได้แคปซูล +1 (สูงสุด 5, อยู่ตลอดรอบ) */
   private addGauge(hits: number): void {
     if (this.state !== 'run' || this.gaugeMaxed) return;
     this.gauge += (hits * this.gaugeGain) / this.gaugeNeed;
@@ -1084,29 +1076,38 @@ export class Game {
         }
       }
     }
-    // ชนแคปซูล: แคปซูลแตก ทหารข้างในไปรอเข้าฝูงตอนเริ่มสเตจถัดไป
+    // ชนแคปซูลใบใดก็ได้: แคปซูลทุกใบบนแท่นแตก ทหารทั้งหมดไปยืนรอหลังเส้นสเตจถัดไป
     for (const p of this.pads) {
       if (p.collected) continue;
+      let touched = false;
       for (const c of p.capsules) {
         if (!c.alive || Math.abs(c.z - this.squad.z) > r + 1.2) continue;
         for (const tr of this.squad.troops) {
           const wx = this.clampX(this.squad.x + tr.ox);
           const wz = this.squad.z + tr.oz;
           if (Math.abs(wx - c.x) < c.halfW + 0.2 && Math.abs(wz - c.z) < c.halfD + 0.25) {
-            c.alive = false;
-            c.label?.remove();
-            c.label = null;
-            c.shatter();
-            this.spawnWaiter(p, c);
-            this.particles.burst(c.x, 1, c.z, 0xcff6ff, 14, 5, 0.12, 0.7);
-            const q = this.project(c.x, 2.4, c.z);
-            this.ui.floatText(`+1 Lv.${p.level}`, q.x, q.y, true);
-            sfx.breakBlock();
-            buzz('light');
+            touched = true;
             break;
           }
         }
+        if (touched) break;
       }
+      if (!touched) continue;
+      let n = 0;
+      for (const c of p.capsules) {
+        if (!c.alive) continue;
+        c.alive = false;
+        c.label?.remove();
+        c.label = null;
+        c.shatter();
+        this.spawnWaiter(p, c);
+        this.particles.burst(c.x, 1, c.z, 0xcff6ff, 14, 5, 0.12, 0.7);
+        n++;
+      }
+      const q = this.project(p.x, 2.6, p.z);
+      this.ui.floatText(`+${n} ทหาร Lv.${p.level}`, q.x, q.y, true);
+      sfx.breakBlock();
+      buzz('medium');
     }
     const solid: Target[] = [...this.cages];
     for (const b of solid) {
