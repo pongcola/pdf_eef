@@ -4,8 +4,9 @@ import {
   BufferGeometry,
   CanvasTexture,
   Color,
+  CapsuleGeometry,
+  ConeGeometry,
   CylinderGeometry,
-  DodecahedronGeometry,
   DoubleSide,
   Float32BufferAttribute,
   Group,
@@ -14,12 +15,13 @@ import {
   MeshLambertMaterial,
   OctahedronGeometry,
   PlaneGeometry,
+  SphereGeometry,
   SRGBColorSpace,
   TorusGeometry,
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { MAX_TIER, STAT_GATE_MAX } from '../config.ts';
-import { ERAS, PLAYER_COLOR, TIER_COLORS, tierLook } from '../eras.ts';
+import { PLAYER_COLOR, TIER_COLORS, tierLook } from '../eras.ts';
 import { STAT_LABEL, type StatKind } from '../game/level.ts';
 import { part, unitGeometry, unitMaterial } from './units.ts';
 
@@ -106,65 +108,46 @@ export abstract class Target {
 
 // ---------- สิ่งกีดขวาง ----------
 
-const blockGeoCache = new Map<number, BufferGeometry>();
-function blockGeometry(era: number): BufferGeometry {
-  const c = blockGeoCache.get(era);
-  if (c) return c;
-  const E = ERAS[era];
-  let g: BufferGeometry;
-  switch (E.decor) {
-    case 'stone':
-      g = merge([
-        part(new DodecahedronGeometry(0.85, 0), 0x8f8a80, 0, 0.6, 0, { sy: 0.8 }),
-        part(new DodecahedronGeometry(0.62, 0), 0xa39d92, 0.1, 1.3, 0.05, { ry: 0.6 }),
-        part(new DodecahedronGeometry(0.4, 0), 0x7d776d, -0.15, 1.8, 0, { ry: 1.2 }),
-      ]);
-      break;
-    case 'ancient':
-      g = merge([
-        part(new BoxGeometry(1.9, 0.25, 1.4), 0xcfb27a, 0, 0.12, 0),
-        part(new CylinderGeometry(0.75, 0.8, 1.4, 12), 0xe8d3a0, 0, 0.95, 0),
-        part(new CylinderGeometry(0.82, 0.82, 0.12, 12), 0xc9a464, 0, 0.6, 0),
-        part(new CylinderGeometry(0.82, 0.82, 0.12, 12), 0xc9a464, 0, 1.3, 0),
-        part(new BoxGeometry(1.8, 0.25, 1.3), 0xcfb27a, 0, 1.75, 0),
-      ]);
-      break;
-    case 'medieval':
-      g = merge([
-        part(new CylinderGeometry(0.9, 0.95, 1.6, 14), 0x9b9b98, 0, 0.8, 0),
-        ...[0.35, 0.8, 1.25].map((y) => part(new CylinderGeometry(0.97, 0.97, 0.1, 14), 0x76767a, 0, y, 0)),
-        part(new CylinderGeometry(1.0, 1.0, 0.22, 14), 0x8a6a4a, 0, 1.7, 0),
-        part(new CylinderGeometry(0.75, 0.75, 0.05, 14), 0xc8a87a, 0, 1.82, 0),
-      ]);
-      break;
-    case 'gunpowder':
-      g = merge([
-        part(new CylinderGeometry(0.7, 0.62, 0.95, 12), 0x9c6a3a, -0.45, 0.48, 0),
-        part(new CylinderGeometry(0.7, 0.62, 0.95, 12), 0x8f5f33, 0.5, 0.48, 0.05),
-        part(new CylinderGeometry(0.7, 0.62, 0.95, 12), 0xa97441, 0.02, 1.43, 0),
-        ...[-0.45, 0.5].flatMap((x) => [0.2, 0.76].map((y) => part(new CylinderGeometry(0.71, 0.71, 0.07, 12), 0x3a3a3a, x, y, 0))),
-        ...[1.15, 1.71].map((y) => part(new CylinderGeometry(0.71, 0.71, 0.07, 12), 0x3a3a3a, 0.02, y, 0)),
-      ]);
-      break;
-    case 'modern':
-      g = merge([
-        part(new BoxGeometry(2.0, 1.3, 1.0), 0xb9bec4, 0, 0.65, 0),
-        part(new BoxGeometry(2.02, 0.3, 1.02), 0xf0c419, 0, 0.95, 0),
-        ...[-0.7, 0, 0.7].map((x) => part(new BoxGeometry(0.3, 0.31, 1.03), 0x2e3238, x, 0.95, 0, { rz: 0.5 })),
-        part(new BoxGeometry(1.6, 0.4, 0.8), 0x8c7a5a, 0, 1.5, 0),
-      ]);
-      break;
-    case 'future':
-    default:
-      g = merge([
-        part(new BoxGeometry(1.7, 1.7, 1.2), 0x3a2a7a, 0, 0.85, 0),
-        ...[-1, 1].flatMap((sx) => [-1, 1].map((sy) => part(new BoxGeometry(0.12, 0.12, 1.25), 0x38f2ff, sx * 0.85, 0.85 + sy * 0.85, 0))),
-        part(new BoxGeometry(0.9, 0.9, 1.25), 0xff4fd8, 0, 0.85, 0),
-      ]);
-      break;
-  }
-  blockGeoCache.set(era, g);
-  return g;
+let scarecrowGeo: BufferGeometry | null = null;
+/** หุ่นไล่กา: หน้าตาเดียวกันทุกยุค (หน้าหันไปทาง +Z เข้าหาฝูง) */
+function blockGeometry(_era: number): BufferGeometry {
+  if (scarecrowGeo) return scarecrowGeo;
+  const wood = 0x8a5a33;
+  const shirt = 0xe8795a;
+  const straw = 0xf2c45a;
+  const sack = 0xf1dcae;
+  const ink = 0x4a2e20;
+  const parts: BufferGeometry[] = [
+    // ฐานดิน + เสา + คานแขน
+    part(new CylinderGeometry(0.42, 0.5, 0.12, 12), 0x7a5230, 0, 0.06, 0),
+    part(new CylinderGeometry(0.075, 0.085, 1.9, 8), wood, 0, 1.0, 0),
+    part(new BoxGeometry(1.75, 0.1, 0.1), wood, 0, 1.5, 0),
+    // เสื้อ + แขนเสื้อ + ผ้าปะ + เชือกคาดเอว
+    part(new CylinderGeometry(0.3, 0.4, 0.72, 12), shirt, 0, 1.28, 0),
+    part(new CapsuleGeometry(0.13, 0.55, 4, 8), shirt, -0.5, 1.5, 0, { rz: Math.PI / 2 }),
+    part(new CapsuleGeometry(0.13, 0.55, 4, 8), shirt, 0.5, 1.5, 0, { rz: Math.PI / 2 }),
+    part(new BoxGeometry(0.2, 0.2, 0.04), 0xffd166, 0.13, 1.3, 0.34, { rz: 0.25 }),
+    part(new BoxGeometry(0.16, 0.14, 0.04), 0x8ce99a, -0.5, 1.52, 0.12, { rz: -0.3 }),
+    part(new CylinderGeometry(0.39, 0.39, 0.07, 12), 0xc9a46b, 0, 0.98, 0),
+    // ฟางโผล่ปลายแขนและชายเสื้อ
+    ...[-1, 1].flatMap((sx) => [-0.1, 0, 0.1].map((dy) => part(new ConeGeometry(0.06, 0.28, 5), straw, sx * 0.98, 1.5 + dy, 0, { rz: -sx * (Math.PI / 2 + dy * 3) }))),
+    ...[-0.24, -0.08, 0.08, 0.24].map((x, i) => part(new ConeGeometry(0.07, 0.26, 5), straw, x, 0.83, (i % 2) * 0.12 - 0.06, { rx: Math.PI })),
+    // หัวกระสอบ + หน้า
+    part(new SphereGeometry(0.32, 14, 10), sack, 0, 2.02, 0),
+    part(new SphereGeometry(0.045, 8, 6), ink, -0.11, 2.07, 0.29, { sy: 1.3 }),
+    part(new SphereGeometry(0.045, 8, 6), ink, 0.11, 2.07, 0.29, { sy: 1.3 }),
+    part(new SphereGeometry(0.05, 8, 6), 0xf59aa0, -0.19, 1.96, 0.25, { sz: 0.4 }),
+    part(new SphereGeometry(0.05, 8, 6), 0xf59aa0, 0.19, 1.96, 0.25, { sz: 0.4 }),
+    part(new BoxGeometry(0.2, 0.025, 0.02), ink, 0, 1.92, 0.31),
+    ...[-0.07, 0, 0.07].map((x) => part(new BoxGeometry(0.018, 0.07, 0.02), ink, x, 1.92, 0.315)),
+    // หมวกฟาง
+    part(new CylinderGeometry(0.5, 0.52, 0.05, 16), 0xd9a441, 0, 2.26, 0),
+    part(new CylinderGeometry(0.24, 0.29, 0.24, 14), 0xd9a441, 0, 2.39, 0),
+    part(new CylinderGeometry(0.295, 0.295, 0.07, 14), 0xe0504a, 0, 2.3, 0),
+  ];
+  scarecrowGeo = merge(parts);
+  scarecrowGeo.scale(1.2, 1.2, 1.2);
+  return scarecrowGeo;
 }
 
 const coreGeo = merge([
@@ -193,7 +176,7 @@ export class BlockTarget extends Target {
     this.group.add(this.shell, this.core);
   }
 
-  /** ก้อนหินยิงไม่แตก: นับแค่จำนวนครั้งที่โดน (ใช้เติมหลอด Level แคปซูล) */
+  /** หุ่นไล่กายิงไม่แตก: นับแค่จำนวนครั้งที่โดน (ใช้เติมหลอดซ้าย) */
   hits = 0;
   hit(dmg: number): boolean {
     this.hits++;

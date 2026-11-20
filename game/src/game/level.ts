@@ -171,6 +171,9 @@ export function generateLevel(level: number, player: PlayerStats): LevelData {
       ['enemies', level >= 2 || stage >= 1 ? 1.2 : 0],
     ];
     const nSections = Math.min(7, 4 + Math.floor(hard / 3));
+    // เลือกชนิดแต่ละแถวก่อน แล้วบังคับ: ทุกสเตจมีแท่นทหารอย่างน้อย 1 แท่น
+    // และแถวสุดท้ายของสเตจ 3 เป็นแท่นทหารเสมอ (ทหารเข้าฝูงตอนเริ่มสเตจ 4)
+    const types: string[] = [];
     for (let i = 0; i < nSections; i++) {
       let type: string;
       if (stage === 0 && i === 0) type = 'stat';
@@ -189,9 +192,23 @@ export function generateLevel(level: number, player: PlayerStats): LevelData {
           }
         } while (type === last && type !== 'block');
       }
+      types.push(type);
+      last = type;
+    }
+    if (stage === STAGES_PER_ERA - 2) {
+      types[nSections - 1] = 'recruit';
+      if (types[nSections - 2] === 'recruit') types[nSections - 2] = 'block';
+    }
+    if (!types.includes('recruit')) {
+      const slots: number[] = [];
+      for (let j = 1; j < nSections - 1; j++) if (types[j - 1] !== 'recruit' && types[j + 1] !== 'recruit') slots.push(j);
+      types[slots.length ? pick(rng, slots) : 1] = 'recruit';
+    }
+    for (let i = 0; i < nSections; i++) {
+      const type = types[i];
       switch (type) {
         case 'block': {
-          // ก้อนหินยิงไม่แตก (เติมหลอดซ้าย) ชนแล้วหินหาย ทหารไม่ตาย
+          // หุ่นไล่กายิงไม่แตก (เติมหลอดซ้าย) ชนแล้วหุ่นหาย ทหารไม่ตาย
           // 1 ก้อนต่อแถว
           items.push({ type: 'block', d, x: pick(rng, LANES), hp: 1, coins: 0 });
           break;
@@ -246,7 +263,6 @@ export function generateLevel(level: number, player: PlayerStats): LevelData {
       if (rng() < 0.5) {
         items.push({ type: 'cash', d: d + 11, x: pick(rng, LANES), value: Math.round(4 + hard * 2) });
       }
-      last = type;
       d += 22 + rng() * 6;
     }
     d += 6;
@@ -259,6 +275,8 @@ export function generateLevel(level: number, player: PlayerStats): LevelData {
   dmgRef = Math.pow(1.4, eraOrd);
   const towerTroops = Math.min(MAX_SQUAD_REF, 5 + hard * 1.4);
   const towerDps = towerTroops * BASE_FIRE_RATE * dmgRef * 1.6;
+  // ยุคแรกเบากว่า แล้วค่อยๆ แข็งขึ้น (ชดเชยแท่นทหารที่มีทุกสเตจ)
+  const towerK = Math.min(0.85, 0.5 + 0.07 * eraOrd);
   let cd = finishD + 8;
   for (let k = 0; k < TOWER_ROWS; k++) {
     for (const x of LANES) {
@@ -266,7 +284,7 @@ export function generateLevel(level: number, player: PlayerStats): LevelData {
         type: 'crystal',
         d: cd,
         x,
-        hp: Math.max(2, Math.round(towerDps * 0.55 * Math.pow(1.22, k) * (0.85 + rng() * 0.3) * relief)),
+        hp: Math.max(2, Math.round(towerDps * towerK * Math.pow(1.22, k) * (0.85 + rng() * 0.3) * relief)),
         coins: Math.round((3 + hard * 0.8) * Math.pow(1.15, k)),
         tier: Math.min(13, Math.round((k * 13) / (TOWER_ROWS - 1))),
         star: k >= 2 && rng() < 0.18,

@@ -172,9 +172,9 @@ function makeStageLine(stageNo: number, z: number): Group {
 /** ชนหอคอยแล้วทหารตายทีละตัว ทุกกี่วินาที */
 const TOWER_KILL_INTERVAL = 0.3;
 
-/** จำนวนครั้งที่ต้องยิงโดนก้อนหินเพื่อให้หลอดซ้ายเต็ม เมื่อแท่นมีแคปซูลเพิ่มมาแล้ว extra ช่อง */
+/** จำนวนครั้งที่ต้องยิงโดนหุ่นไล่กาเพื่อให้หลอดซ้ายเต็ม เมื่อแท่นมีแคปซูลเพิ่มมาแล้ว extra ช่อง */
 function gaugeHits(extra: number): number {
-  return Math.round(15 * Math.pow(1.35, extra));
+  return Math.round(20 * Math.pow(1.35, extra));
 }
 
 /** เป้าของสกิลฮีโร่ */
@@ -892,7 +892,7 @@ export class Game {
       best.hit(dmg);
       return;
     }
-    // หลอดซ้ายขึ้นตามจำนวนครั้งที่ยิงโดนก้อนหิน (ก้อนหินไม่แตก)
+    // หลอดซ้ายขึ้นตามจำนวนครั้งที่ยิงโดนหุ่นไล่กา (หุ่นไล่กาไม่แตก)
     if (best instanceof BlockTarget) {
       best.hit(dmg);
       this.addGauge(1);
@@ -991,7 +991,7 @@ export class Game {
     }
   }
 
-  /** หลอดซ้าย: ยิงโดนก้อนหิน 1 ครั้ง = 1 แต้ม เต็มแล้วทุกแท่นที่ยังไม่ผ่านได้แคปซูล +1 (สูงสุด 5, อยู่ตลอดรอบ) */
+  /** หลอดซ้าย: ยิงโดนหุ่นไล่กา 1 ครั้ง = 1 แต้ม เต็มแล้วทุกแท่นที่ยังไม่ผ่านได้แคปซูล +1 (สูงสุด 5, อยู่ตลอดรอบ) */
   private addGauge(hits: number): void {
     if (this.state !== 'run' || this.gaugeMaxed) return;
     this.gauge += (hits * this.gaugeGain) / this.gaugeNeed;
@@ -1058,7 +1058,7 @@ export class Game {
 
   private troopCollisions(): void {
     const r = this.squad.radiusZ();
-    // ชนก้อนหิน: ทหารไม่ตาย แต่ก้อนหินหายไป
+    // ชนหุ่นไล่กา: ทหารไม่ตาย แต่หุ่นไล่กาหายไป
     for (const b of this.blocks) {
       if (!b.alive || Math.abs(b.z - this.squad.z) > r + 1.6) continue;
       for (const tr of this.squad.troops) {
