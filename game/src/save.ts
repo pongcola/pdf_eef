@@ -1,9 +1,10 @@
+import { defaultGear, normalizeGear, type GearState } from './gear.ts';
 import { ERA_START_COINS, STAMINA_MAX } from './config.ts';
 import type { StaminaState } from './stamina.ts';
 import type { MetaLevels, UpgradeId } from './economy.ts';
 
 export interface SaveData {
-  version: 4;
+  version: 5;
   /** เลขด่านรวม (1, 2, 3, …) — ยุคและไทม์ไลน์คำนวณจากเลขนี้ */
   level: number;
   /** เหรียญ (ใช้ในยุคปัจจุบัน รีเซ็ตเมื่อขึ้นยุคใหม่) */
@@ -21,13 +22,15 @@ export interface SaveData {
   /** ฮีโร่: ตัวที่ใช้อยู่ และ Level ของแต่ละตัว (รีเซ็ตทุกยุค) */
   heroes: { equipped: number; levels: number[] };
   settings: { sound: boolean; music: boolean; vibration: boolean };
+  /** ระบบอุปกรณ์ (ถาวร ไม่รีเซ็ตตอนขึ้นยุค) — เพิ่มใน v5 */
+  gear: GearState;
 }
 
 const KEY = 'crowd-ages-save-v1';
 
 export function defaultSave(now: number): SaveData {
   return {
-    version: 4,
+    version: 5,
     level: 1,
     coins: ERA_START_COINS,
     stars: 0,
@@ -38,6 +41,7 @@ export function defaultSave(now: number): SaveData {
     trophies: 0,
     heroes: { equipped: 0, levels: [1, 1, 1, 1, 1, 1] },
     settings: { sound: true, music: true, vibration: true },
+    gear: defaultGear(),
   };
 }
 
@@ -58,14 +62,14 @@ export function loadSave(now: number): SaveData {
       const level = Math.floor((old - 1) / 5) + 1;
       return { ...base, ...keep, level, upgrades: { ...base.upgrades, ...(data.upgrades ?? {}) } };
     }
-    if (data.version !== 3 && data.version !== 4) return { ...base, ...keep };
+    if (data.version !== 3 && data.version !== 4 && data.version !== 5) return { ...base, ...keep };
     // เวอร์ชัน 3: ยุคละ 5 ด่าน → เวอร์ชัน 4: 1 ด่าน = 1 ยุค
     const level = data.version === 3 ? Math.floor(((data.level ?? 1) - 1) / 5) + 1 : (data.level ?? 1);
     return {
       ...base,
       ...data,
       level,
-      version: 4,
+      version: 5,
       upgrades: { ...base.upgrades, ...(data.upgrades ?? {}) },
       meta: { ...base.meta, ...(data.meta ?? {}) },
       heroes: {
@@ -74,6 +78,8 @@ export function loadSave(now: number): SaveData {
       },
       stamina: keep.stamina,
       settings: keep.settings,
+      // v4 ยังไม่มี gear → เริ่มว่าง
+      gear: normalizeGear(data.gear),
     };
   } catch {
     return base;

@@ -45,6 +45,27 @@ export const SLOTS = {
   stat_power: { emoji: '💥', label: 'พลังยิง', size: ICON, where: 'HUD ค่าพลังระหว่างเล่น' },
   trophy: { emoji: '🏆', label: 'ถ้วยรางวัล', size: ICON, where: 'รางวัลจบด่าน, หน้าทีม (อัปเกรดฮีโร่)' },
   team: { emoji: '🦸', label: 'ปุ่มฮีโร่', size: ICON, where: 'เมนู (ปุ่มหน้าทีม)' },
+  // ----- ระบบอุปกรณ์ -----
+  token: { emoji: '🟢', label: 'Token (เหรียญสีเขียว)', size: ICON, where: 'แท็บอุปกรณ์, หน้าผลลัพธ์' },
+  pickaxe: { emoji: '⛏️', label: 'Pickaxe', size: ICON, where: 'แท็บเหมือง, หน้าผลลัพธ์' },
+  bomb: { emoji: '💣', label: 'Bomb', size: ICON, where: 'แท็บเหมือง, หน้าผลลัพธ์' },
+  enh_stone: { emoji: '💠', label: 'หินตีบวก', size: ICON, where: 'แท็บเหมือง' },
+  gear_helmet: { emoji: '⛑️', label: 'หมวก (ทุก class) — ไฟล์เฉพาะ class: gear_helmet_0..3', size: ICON, where: 'แท็บอุปกรณ์' },
+  gear_suit: { emoji: '🥋', label: 'ชุด — gear_suit_0..3', size: ICON, where: 'แท็บอุปกรณ์' },
+  gear_boots: { emoji: '👢', label: 'รองเท้า — gear_boots_0..3', size: ICON, where: 'แท็บอุปกรณ์' },
+  gear_armor: { emoji: '🛡️', label: 'เกราะ — gear_armor_0..3', size: ICON, where: 'แท็บอุปกรณ์' },
+  gear_gloves: { emoji: '🧤', label: 'ถุงมือ — gear_gloves_0..3', size: ICON, where: 'แท็บอุปกรณ์' },
+  gear_weapon_0: { emoji: '🏏', label: 'อาวุธยุคหิน (กระบอง) — gear_weapon_0_0..3', size: ICON, where: 'แท็บอุปกรณ์ (ไอคอนอาวุธเปลี่ยนตามยุค)' },
+  gear_weapon_1: { emoji: '🔱', label: 'อาวุธยุคโบราณ (หอก) — gear_weapon_1_0..3', size: ICON, where: 'แท็บอุปกรณ์' },
+  gear_weapon_2: { emoji: '🗡️', label: 'อาวุธยุคอัศวิน (ดาบ) — gear_weapon_2_0..3', size: ICON, where: 'แท็บอุปกรณ์' },
+  gear_weapon_3: { emoji: '🧨', label: 'อาวุธยุคดินปืน (ปืนคาบศิลา) — gear_weapon_3_0..3', size: ICON, where: 'แท็บอุปกรณ์' },
+  gear_weapon_4: { emoji: '🔫', label: 'อาวุธยุคสมัยใหม่ (ไรเฟิล) — gear_weapon_4_0..3', size: ICON, where: 'แท็บอุปกรณ์' },
+  gear_weapon_5: { emoji: '🔦', label: 'อาวุธยุคอนาคต (ปืนเลเซอร์) — gear_weapon_5_0..3', size: ICON, where: 'แท็บอุปกรณ์' },
+  rune_critRate: { emoji: '🎯', label: 'รูน Crit Rate — rune_critRate_0..3 (B/A/S/SR)', size: ICON, where: 'แท็บอุปกรณ์/เหมือง' },
+  rune_critDmg: { emoji: '💥', label: 'รูน Crit Dmg — rune_critDmg_0..3', size: ICON, where: 'แท็บอุปกรณ์/เหมือง' },
+  rune_dmg: { emoji: '⚔️', label: 'รูน Dmg — rune_dmg_0..3', size: ICON, where: 'แท็บอุปกรณ์/เหมือง' },
+  rune_rate: { emoji: '⚡', label: 'รูน Attack Rate — rune_rate_0..3', size: ICON, where: 'แท็บอุปกรณ์/เหมือง' },
+  rune_range: { emoji: '🏹', label: 'รูน Attack Range — rune_range_0..3', size: ICON, where: 'แท็บอุปกรณ์/เหมือง' },
   // ----- ฮีโร่ -----
   hero_0: { emoji: '🧪', label: 'ฮีโร่: นักปรุงยาเพี้ยน', size: '256×256', where: 'หน้าทีม' },
   hero_1: { emoji: '🥊', label: 'ฮีโร่: นักชกเพลิง', size: '256×256', where: 'หน้าทีม' },
@@ -93,6 +114,12 @@ export function hasArt(key: SlotKey): boolean {
 
 export function artUrl(key: SlotKey): string | undefined {
   return ART[key];
+}
+
+/** ใช้รูปไฟล์แรกที่มีในรายการ key ถ้าไม่มีเลยใช้อีโมจิของ key สุดท้าย */
+export function icoFirst(keys: string[], cls = ''): string {
+  for (const k of keys) if (ART[k]) return ico(k, cls);
+  return ico(keys[keys.length - 1], cls);
 }
 
 /** ไอคอน: รูปถ้ามี ไม่งั้นใช้อีโมจิ */

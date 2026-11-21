@@ -56,6 +56,9 @@ import { sfx, setMusic, setSound, suspendAudio, resumeAudio } from '../audio.ts'
 import { buzz, exitApp, setVibration } from '../platform.ts';
 import { clearSave, defaultSave, loadSave, writeSave, type SaveData } from '../save.ts';
 import { consumeStamina, refreshStamina } from '../stamina.ts';
+import * as Gear from '../gear.ts';
+import { addDrops, emptyDrops, gearMods, rollStageDrops, type Drops, type GearMods } from '../gear.ts';
+import type { GearActResult, GearOp } from '../ui/ui.ts';
 import { Boss } from '../render/boss.ts';
 import { makeBlobShadow } from '../render/common.ts';
 import { createObstacle, type Obstacle } from '../render/obstacles.ts';
@@ -248,6 +251,10 @@ export class Game {
   private rateMul = 1;
   private rangeMul = 1;
   private powMul = 1;
+  /** ตัวคูณจากอุปกรณ์ (คำนวณตอนเริ่มรอบ) */
+  private gm: GearMods = { rateMul: 1, rangeMul: 1, dmgMul: 1, critChance: 0.05, critMul: 1.5 };
+  /** ของที่ได้จากการผ่านสเตจในรอบนี้ */
+  private runDrops: Drops = emptyDrops();
   private collected = 0;
   /** เกจด้านซ้าย: เต็มแล้วได้ทหารเพิ่ม */
   private gauge = 0;
@@ -514,6 +521,8 @@ export class Game {
     this.squad.reset(start);
     this.squad.z = 0;
     this.rateMul = this.rangeMul = this.powMul = 1;
+    this.gm = gearMods(this.save.gear);
+    this.runDrops = emptyDrops();
     this.collected = 0;
     this.starsGot = 0;
     this.gauge = 0;
@@ -764,11 +773,12 @@ export class Game {
       while (this.stage < L.stageD.length - 2 && this.dist >= L.stageD[this.stage + 1]) {
         this.stage++;
         const n = this.deliverPending();
-        this.ui.toast(`สเตจ ${this.stage + 1}/${STAGES_PER_ERA}${n ? ` • ทหาร +${n}` : ''}`);
+        const dr = this.stageDrop(this.stage - 1);
+        this.ui.toast(`สเตจ ${this.stage + 1}/${STAGES_PER_ERA}${n ? ` • ทหาร +${n}` : ''}${dr}`);
       }
       if (this.dist >= L.finishD) {
         this.stage = STAGES_PER_ERA - 1;
-        this.startBonus();
+        this.startBonus(this.stageDrop(STAGES_PER_ERA - 2));
         const n = this.deliverPending();
         if (n) {
           const q = this.project(this.squad.x, 2.6, this.squad.z);
@@ -794,9 +804,10 @@ export class Game {
   }
 
   private fire(dt: number): void {
-    const interval = 1 / (BASE_FIRE_RATE * this.rateMul);
-    const range = BASE_RANGE * this.rangeMul;
-    const dmg = this.baseDmg * this.powMul;
+    // อุปกรณ์คูณต่อจากป้ายสถานะ
+    const interval = 1 / (BASE_FIRE_RATE * this.rateMul * this.gm.rateMul);
+    const range = BASE_RANGE * this.rangeMul * this.gm.rangeMul;
+    const dmg = this.baseDmg * this.powMul * this.gm.dmgMul;
     let shots = 0;
     for (const tr of this.squad.troops) {
       tr.cool -= dt;
@@ -804,7 +815,10 @@ export class Game {
       tr.cool += interval * (0.85 + Math.random() * 0.3);
       if (tr.cool < 0) tr.cool = interval * Math.random();
       const x = this.clampX(this.squad.x + tr.ox) + 0.22;
-      this.projectiles!.fire(x, 0.85, this.squad.z + tr.oz - 0.4, dmg * TIER_DAMAGE[tr.tier - 1], range, tr.tier > 1);
+      // คริ: สุ่มต่อกระสุน กระสุนคริเป็นลูกใหญ่
+      const crit = Math.random() < this.gm.critChance;
+      const d = dmg * TIER_DAMAGE[tr.tier - 1] * (crit ? this.gm.critMul : 1);
+      this.projectiles!.fire(x, 0.85, this.squad.z + tr.oz - 0.4, d, range, crit || tr.tier > 1);
       shots++;
     }
     if (shots) sfx.shoot();
@@ -871,7 +885,8 @@ export class Game {
     if (!best.alive) return;
     if (best instanceof StatGate) {
       // ค่าเพิ่มตามระดับทหารที่ยิง (ไม่ขึ้นกับพลังโจมตี)
-      const gain = (3 * dmg) / Math.max(0.0001, this.baseDmg * this.powMul * FIRE_RATE_SCALE);
+      // หาร Dmg% จากอุปกรณ์ออก ป้ายจะได้ไม่ขึ้นเร็วเกินไป
+      const gain = (3 * dmg) / Math.max(0.0001, this.baseDmg * this.powMul * this.gm.dmgMul * FIRE_RATE_SCALE);
       best.shoot(dmg, gain);
       if (best.justBroke) {
         best.justBroke = false;
@@ -1571,6 +1586,8 @@ export class Game {
     return {
       trophies: this.save.trophies,
       equipped: h.equipped,
+      gear: this.save.gear,
+      era: eraIndexForLevel(this.save.level),
       heroes: HEROES.map((d) => {
         const lvl = h.levels[d.id] ?? 1;
         const cost = heroUpgradeCost(lvl);
@@ -1607,6 +1624,76 @@ export class Game {
     this.ui.renderTeam(this.teamData());
   }
 
+  /** คำสั่งจากแท็บอุปกรณ์ในหน้าทีม */
+  gearAct(op: GearOp, a = '', b = ''): GearActResult {
+    const g = this.save.gear;
+    const rng = Math.random;
+    let res: GearActResult = { msg: '', good: true };
+    switch (op) {
+      case 'equip':
+        Gear.equip(g, a);
+        break;
+      case 'unequip':
+        Gear.unequip(g, Number(a));
+        break;
+      case 'enhance': {
+        const it = Gear.findItem(g, a);
+        if (!it) break;
+        const r = Gear.enhance(g, a, rng);
+        if (!r.ok && r.reason === 'stones') res = { msg: 'หินตีบวกไม่พอ', good: false };
+        else if (!r.ok && r.reason === 'max') res = { msg: 'ตีบวกเต็มแล้ว', good: false };
+        else if (r.ok) res = { msg: `ตีบวกสำเร็จ! +${r.to}`, good: true };
+        else res = { msg: r.to < r.from ? `ตีบวกพลาด… ลดเป็น +${r.to}` : `ตีบวกพลาด (+${r.to})`, good: false };
+        break;
+      }
+      case 'rune':
+        Gear.setRune(g, a, b);
+        break;
+      case 'salvage': {
+        const got = Gear.salvage(g, a);
+        res = got < 0 ? { msg: 'แยกชิ้นที่ใส่อยู่ไม่ได้', good: false } : { msg: `แยกชิ้นได้ Token +${got}`, good: true };
+        break;
+      }
+      case 'mine': {
+        if (g.pickaxes <= 0) {
+          res = { msg: 'ไม่มี Pickaxe', good: false };
+          break;
+        }
+        const n = b === 'all' ? g.pickaxes : 1;
+        const got = Gear.mine(g, n, rng);
+        res = { msg: got ? `ขุด ${n} ครั้ง ได้หิน +${got}` : `ขุด ${n} ครั้ง ไม่เจอหิน`, good: got > 0 };
+        break;
+      }
+      case 'blast': {
+        if (g.bombs <= 0) {
+          res = { msg: 'ไม่มี Bomb', good: false };
+          break;
+        }
+        const n = b === 'all' ? g.bombs : 1;
+        const got = Gear.blast(g, n, rng);
+        res = { msg: got.length ? `ระเบิด ${n} ลูก ได้รูน ${got.length} ชิ้น` : `ระเบิด ${n} ลูก ไม่ได้รูน`, good: got.length > 0, runes: got };
+        break;
+      }
+      case 'pull1':
+      case 'pull10': {
+        const got = Gear.pull(g, op === 'pull10' ? 10 : 1, rng);
+        if (!got.length) {
+          res = { msg: 'Token ไม่พอ', good: false };
+          break;
+        }
+        Gear.autoEquipEmpty(g);
+        res = { msg: `ได้อุปกรณ์ ${got.length} ชิ้น`, good: true, items: got };
+        break;
+      }
+    }
+    writeSave(this.save);
+    if (res.msg) {
+      if (res.good) sfx.gateGood();
+      else sfx.gateBad();
+    }
+    return res;
+  }
+
   /** หอคอยที่ขวางหน้าฝูงอยู่ (เลนละ 3.2 หน่วย ไม่มีช่องให้ลอด) */
   private towerAhead(): CrystalTarget | null {
     const front = this.squad.z - this.squad.radiusZ() * 0.7;
@@ -1620,10 +1707,10 @@ export class Game {
     return null;
   }
 
-  private startBonus(): void {
+  private startBonus(dropText = ''): void {
     this.state = 'bonus';
     this.ui.showHint(false);
-    this.ui.toast(`สเตจ ${STAGES_PER_ERA}/${STAGES_PER_ERA} ทุ่งหอคอย! ยิงทะลวงให้ถึงแถวสุดท้าย`);
+    this.ui.toast(`สเตจ ${STAGES_PER_ERA}/${STAGES_PER_ERA} ทุ่งหอคอย! ยิงทะลวงให้ถึงแถวสุดท้าย${dropText}`);
     sfx.gateGood();
   }
 
@@ -1661,7 +1748,17 @@ export class Game {
     if (this.squad.count === 0) this.lose();
   }
 
+  /** ผ่านสเตจ (index 0–3): สุ่มของดรอปแล้วเก็บเข้าเซฟทันที (แพ้ทีหลังก็ไม่หาย) คืนข้อความสั้นๆ */
+  private stageDrop(index: number): string {
+    const d = rollStageDrops(index, Math.random);
+    addDrops(this.save.gear, d);
+    addDrops(this.runDrops, d);
+    writeSave(this.save);
+    return ` • Token +${d.tokens}${d.pickaxes ? ' • ⛏️+1' : ''}${d.bombs ? ' • 💣+1' : ''}`;
+  }
+
   private win(): void {
+    if (this.state === 'bonus') this.stageDrop(STAGES_PER_ERA - 1);
     this.state = 'won';
     this.endTimer = 1.6;
     sfx.win();
@@ -1755,6 +1852,7 @@ export class Game {
       // วงล้อโผล่แบบสุ่มหลังรอบที่ไม่ผ่าน (ตอนผ่านยุคเหรียญถูกแลกเป็นดาวแล้ว)
       wheel: !eraClear && reward > 0 && Math.random() < WHEEL_CHANCE,
       stage: this.stage + 1,
+      drops: { ...this.runDrops },
       income: incomeMult(up.economy),
       save: this.save,
     });

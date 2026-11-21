@@ -1,7 +1,12 @@
+import {
+  CLASSES, CLASS_COLOR, DROP, LEGENDARY_PITY, PULL_COST_1, PULL_COST_10, PULL_RATE, SALVAGE, SLOTS as GEAR_SLOTS, SLOT_NAME, SLOT_STATS,
+  STATS, STAT_TH, TIERS, TIER_COLOR, enhanceInfo, findItem, isEquipped, itemStats, runeValue, totalStats,
+  type Drops, type GearItem, type GearState, type Rune, type Stat,
+} from '../gear.ts';
 import { STAGES_PER_ERA, STAMINA_MAX, STAMINA_RUN_COST } from '../config.ts';
 import type { MetaId, UpgradeId } from '../economy.ts';
 import type { EraDef } from '../eras.ts';
-import { applySkins, artUrl, ico } from './art.ts';
+import { applySkins, artUrl, ico, icoFirst } from './art.ts';
 import { unlockText, type HeroDef } from '../heroes.ts';
 import type { SaveData } from '../save.ts';
 import { formatMs, msToNextStamina, refreshStamina } from '../stamina.ts';
@@ -23,12 +28,24 @@ export interface UIHandlers {
   team(): TeamData;
   heroUpgrade(id: number): void;
   heroEquip(id: number): void;
+  gear(op: GearOp, a?: string, b?: string): GearActResult;
+}
+
+export type GearOp = 'equip' | 'unequip' | 'enhance' | 'rune' | 'salvage' | 'mine' | 'blast' | 'pull1' | 'pull10';
+export interface GearActResult {
+  msg: string;
+  good: boolean;
+  items?: GearItem[];
+  runes?: Rune[];
 }
 
 export interface TeamData {
   trophies: number;
   equipped: number;
   heroes: { def: HeroDef; lvl: number; atk: number; cost: number; unlocked: boolean; affordable: boolean }[];
+  gear: GearState;
+  /** ยุคปัจจุบัน (0–5) ใช้เลือกไอคอนอาวุธ */
+  era: number;
 }
 
 export interface TimelineData {
@@ -84,6 +101,8 @@ export interface ResultData {
   castle: boolean;
   /** สเตจที่ไปถึง (1–4) */
   stage: number;
+  /** ของจากระบบอุปกรณ์ที่ได้ในรอบนี้ */
+  drops: Drops;
   wheel: boolean;
   income: number;
   save: SaveData;
@@ -139,6 +158,11 @@ export class UI {
   private teamModal: HTMLElement;
   private teamSel = -1;
   private teamTab = 'hero';
+  private gearSub: 'equip' | 'mine' | 'gacha' = 'equip';
+  private gearSel = '';
+  private gearFilter = -1;
+  private gearRunePick = false;
+  private gearLast: GearActResult | null = null;
   private toastEl: HTMLElement;
   private crowdLabel: HTMLElement;
   private dmgPool: HTMLElement[] = [];
@@ -272,6 +296,11 @@ export class UI {
       if (card?.dataset.note) this.showNote(card, card.dataset.note);
       return;
     }
+    const gt = (e.target as HTMLElement).closest<HTMLElement>('[data-gsub],[data-gitem],[data-gfilter],[data-gop]');
+    if (gt && !(gt as HTMLButtonElement).disabled) {
+      this.onGearClick(gt);
+      return;
+    }
     const t = (e.target as HTMLElement).closest<HTMLElement>('[data-act],[data-upg],[data-meta],[data-hero],[data-tab]');
     if (!t || (t as HTMLButtonElement).disabled) return;
     const upg = t.dataset.upg as UpgradeId | undefined;
@@ -292,6 +321,7 @@ export class UI {
     }
     if (t.dataset.tab) {
       this.teamTab = t.dataset.tab;
+      this.gearLast = null;
       sfx.click();
       this.renderTeam(this.h.team());
       return;
@@ -680,6 +710,9 @@ export class UI {
           ${r.stars ? `<div class="rw star">${ico('star')}<b>+${r.stars}</b></div>` : ''}
           ${r.trophies ? `<div class="rw trophy">${ico('trophy')}<b>+${r.trophies}</b></div>` : ''}
           ${ec ? `<div class="rw stamina">${ico('stamina')}<b>+${ec.stamina}</b></div>` : ''}
+          ${r.drops.tokens ? `<div class="rw token">${ico('token')}<b>+${r.drops.tokens}</b></div>` : ''}
+          ${r.drops.pickaxes ? `<div class="rw pick">${ico('pickaxe')}<b>+${r.drops.pickaxes}</b></div>` : ''}
+          ${r.drops.bombs ? `<div class="rw bomb">${ico('bomb')}<b>+${r.drops.bombs}</b></div>` : ''}
         </div>
         ${r.win && !ec ? `<div class="survivors">ทหารรอดชีวิต <b>${fmt(r.survivors)}</b></div>` : ''}
         ${wheelHtml}
@@ -744,11 +777,13 @@ export class UI {
     const tabs = `<div class="team-tabs">
         <button class="tab ${this.teamTab === 'hero' ? 'on' : ''}" data-tab="hero">ฮีโร่</button>
         <button class="tab ${this.teamTab === 'pets' ? 'on' : ''}" data-tab="pets">สัตว์เลี้ยง</button>
-        <button class="tab ${this.teamTab === 'gears' ? 'on' : ''}" data-tab="gears">อุปกรณ์ ${ico('lock')}</button>
+        <button class="tab ${this.teamTab === 'gears' ? 'on' : ''}" data-tab="gears">อุปกรณ์</button>
       </div>`;
     let body: string;
-    if (this.teamTab !== 'hero') {
-      body = `<div class="soon">${ico('lock')}<b>เร็วๆ นี้</b><div>${this.teamTab === 'pets' ? 'สัตว์เลี้ยงช่วยรบ' : 'อุปกรณ์เสริมพลัง'} จะมาในอัปเดตถัดไป</div></div>`;
+    if (this.teamTab === 'gears') {
+      body = this.gearBody(d.gear, d.era);
+    } else if (this.teamTab !== 'hero') {
+      body = `<div class="soon">${ico('lock')}<b>เร็วๆ นี้</b><div>สัตว์เลี้ยงช่วยรบ จะมาในอัปเดตถัดไป</div></div>`;
     } else {
       const h = d.heroes[sel];
       const def = h.def;
@@ -784,12 +819,212 @@ export class UI {
     }
     this.teamModal.innerHTML = `
       <div class="card team">
-        <div class="team-head"><div class="card-title">ทีม</div><div class="team-tro">${ico('trophy')} <b>${d.trophies}</b></div></div>
+        <div class="team-head"><div class="card-title">ทีม</div>${
+          this.teamTab === 'gears'
+            ? `<div class="team-tro token">${ico('token')} <b>${fmt(d.gear.tokens)}</b></div>`
+            : `<div class="team-tro">${ico('trophy')} <b>${d.trophies}</b></div>`
+        }</div>
         ${tabs}
         ${body}
         <button class="play-btn" data-act="close-team"><span>ปิด</span></button>
       </div>`;
     applySkins(this.teamModal);
+  }
+
+  // ---------- แท็บอุปกรณ์ ----------
+
+  private onGearClick(t: HTMLElement): void {
+    sfx.click();
+    const ds = t.dataset;
+    if (ds.gsub) {
+      this.gearSub = ds.gsub as typeof this.gearSub;
+      this.gearLast = null;
+      this.gearRunePick = false;
+    } else if (ds.gfilter !== undefined) {
+      this.gearFilter = Number(ds.gfilter);
+    } else if (ds.gitem !== undefined) {
+      this.gearSel = this.gearSel === ds.gitem ? '' : ds.gitem;
+      this.gearRunePick = false;
+      this.gearLast = null;
+    } else if (ds.gop === 'rune-pick') {
+      this.gearRunePick = !this.gearRunePick;
+    } else if (ds.gop) {
+      const op = ds.gop as GearOp;
+      this.gearLast = this.h.gear(op, ds.a ?? '', ds.b ?? '');
+      if (op === 'rune') this.gearRunePick = false;
+      if (op === 'salvage' && this.gearLast.good) this.gearSel = '';
+    }
+    this.renderTeam(this.h.team());
+  }
+
+  private gearIcon(it: Pick<GearItem, 'slot' | 'cls'>, era: number): string {
+    const slot = GEAR_SLOTS[it.slot];
+    const keys = slot === 'weapon' ? [`gear_weapon_${era}_${it.cls}`, `gear_weapon_${era}`] : [`gear_${slot}_${it.cls}`, `gear_${slot}`];
+    return icoFirst(keys);
+  }
+
+  private runeIcon(r: Pick<Rune, 'stat' | 'tier'>): string {
+    return icoFirst([`rune_${r.stat}_${r.tier}`, `rune_${r.stat}`]);
+  }
+
+  private pct(_st: Stat, v: number, sign = true): string {
+    const n = Math.round(v * 10) / 10;
+    return `${sign && n >= 0 ? '+' : ''}${n}%`;
+  }
+
+  private itemName(it: GearItem): string {
+    return `${CLASSES[it.cls]} ${SLOT_NAME[GEAR_SLOTS[it.slot]]}${it.plus ? ` +${it.plus}` : ''}`;
+  }
+
+  private itemCell(it: GearItem, g: GearState, era: number, attr: string): string {
+    const r = it.rune ? g.runes.find((x) => x.id === it.rune) : undefined;
+    return `<button class="gi ${this.gearSel === it.id ? 'sel' : ''}" ${attr} style="--cc:${CLASS_COLOR[it.cls]}">
+      ${this.gearIcon(it, era)}
+      ${it.plus ? `<span class="gi-plus">+${it.plus}</span>` : ''}
+      ${r ? `<span class="gi-rune" style="--tc:${TIER_COLOR[r.tier]}"></span>` : ''}
+      ${isEquipped(g, it.id) ? '<span class="gi-on">✓</span>' : ''}
+    </button>`;
+  }
+
+  private gearBody(g: GearState, era: number): string {
+    const sub = (k: string, label: string) => `<button class="gsub ${this.gearSub === k ? 'on' : ''}" data-gsub="${k}">${label}</button>`;
+    const last = this.gearLast?.msg ? `<div class="g-msg ${this.gearLast.good ? 'good' : 'bad'}">${this.gearLast.msg}</div>` : '';
+    let inner = '';
+    if (this.gearSub === 'equip') inner = this.gearEquip(g, era);
+    else if (this.gearSub === 'mine') inner = this.gearMine(g);
+    else inner = this.gearGacha(g, era);
+    return `<div class="gsubs">${sub('equip', 'สวมใส่')}${sub('mine', 'เหมือง')}${sub('gacha', 'สุ่ม')}</div>${last}<div class="gear-scroll">${inner}</div>`;
+  }
+
+  private gearEquip(g: GearState, era: number): string {
+    const tot = totalStats(g);
+    const slots = GEAR_SLOTS.map((slot, i) => {
+      const it = g.equipped[i] ? findItem(g, g.equipped[i]) : undefined;
+      return it
+        ? this.itemCell(it, g, era, `data-gitem="${it.id}"`)
+        : `<div class="gi empty"><span class="gi-ph">${this.gearIcon({ slot: i, cls: 0 }, era)}</span><small>${SLOT_NAME[slot]}</small></div>`;
+    }).join('');
+    const sel = this.gearSel ? findItem(g, this.gearSel) : undefined;
+    // ค่าที่จะเปลี่ยนถ้าใส่ชิ้นที่เลือก
+    let diff: Partial<Record<Stat, number>> = {};
+    if (sel && !isEquipped(g, sel.id)) {
+      const after: GearState = { ...g, equipped: g.equipped.map((id, i) => (i === sel.slot ? sel.id : id)) };
+      const t2 = totalStats(after);
+      for (const st of STATS) if (Math.abs(t2[st] - tot[st]) > 0.001) diff[st] = t2[st] - tot[st];
+    }
+    const statRows = STATS.map((st) => {
+      const dv = diff[st];
+      const d = dv === undefined ? '' : `<em class="${dv > 0 ? 'up' : 'down'}">${dv > 0 ? '▲' : '▼'}${this.pct(st, Math.abs(dv), false)}</em>`;
+      const v = st === 'critRate' || st === 'critDmg' ? this.pct(st, tot[st], false) : this.pct(st, tot[st]);
+      return `<div class="gs"><span>${STAT_TH[st]}</span><b>${v}</b>${d}</div>`;
+    }).join('');
+    const detail = sel ? this.gearDetail(sel, g, era) : '<div class="note">แตะอุปกรณ์เพื่อดูรายละเอียด ใส่ ตีบวก หรือใส่รูน</div>';
+    const filters = [`<button class="gf ${this.gearFilter < 0 ? 'on' : ''}" data-gfilter="-1">ทั้งหมด</button>`]
+      .concat(GEAR_SLOTS.map((s, i) => `<button class="gf ${this.gearFilter === i ? 'on' : ''}" data-gfilter="${i}">${SLOT_NAME[s]}</button>`))
+      .join('');
+    const bag = g.items
+      .filter((it) => this.gearFilter < 0 || it.slot === this.gearFilter)
+      .sort((a, b) => b.cls - a.cls || b.plus - a.plus || a.slot - b.slot)
+      .map((it) => this.itemCell(it, g, era, `data-gitem="${it.id}"`))
+      .join('');
+    return `
+      <div class="g-equip">
+        <div class="g-slots">${slots}</div>
+        <div class="g-stats">${statRows}</div>
+      </div>
+      ${detail}
+      <div class="g-sec">กระเป๋า (${g.items.length}) • หิน ${g.stones}</div>
+      <div class="g-filters">${filters}</div>
+      <div class="g-bag">${bag || '<div class="note">ยังไม่มีอุปกรณ์ — ไปที่แท็บ "สุ่ม" ใช้ Token สุ่มอุปกรณ์</div>'}</div>`;
+  }
+
+  private gearDetail(it: GearItem, g: GearState, era: number): string {
+    const st = itemStats(it);
+    const lines = SLOT_STATS[it.slot].map((s) => `<div>${STAT_TH[s]} <b>${this.pct(s, st[s])}</b></div>`).join('');
+    const rune = it.rune ? g.runes.find((r) => r.id === it.rune) : undefined;
+    const on = isEquipped(g, it.id);
+    const info = enhanceInfo(it);
+    const enh = info
+      ? `<div class="g-enh">ตีไป +${info.target} • โอกาสสำเร็จ <b>${Math.round(info.chance * 100)}%</b>${
+          info.pity > 0 ? ` (พื้นฐาน ${Math.round(info.base * 100)}% + Pity ${Math.round(info.pity * 100)}%)` : ''
+        }${info.failTo < it.plus ? `<div class="warn">⚠️ ถ้าพลาด จะลดเป็น +${info.failTo}</div>` : ''}</div>`
+      : '<div class="g-enh">ตีบวกเต็มแล้ว (+6)</div>';
+    const runeLine = rune
+      ? `<div class="g-rune">${this.runeIcon(rune)} รูน ${TIERS[rune.tier]} • ${STAT_TH[rune.stat]} <b>+${runeValue(rune)}%</b></div>`
+      : '<div class="g-rune none">ยังไม่ใส่รูน</div>';
+    const bagRunes = g.runes.filter((r) => !r.on).sort((a, b) => b.tier - a.tier);
+    const picker = this.gearRunePick
+      ? `<div class="g-runes">${
+          bagRunes.length
+            ? bagRunes
+                .map((r) => `<button class="rn" data-gop="rune" data-a="${it.id}" data-b="${r.id}" style="--tc:${TIER_COLOR[r.tier]}">${this.runeIcon(r)}<small>${TIERS[r.tier]} ${STAT_TH[r.stat]} +${runeValue(r)}%</small></button>`)
+                .join('')
+            : '<div class="note">ไม่มีรูนในกระเป๋า — ใช้ Bomb ที่แท็บ "เหมือง"</div>'
+        }</div>`
+      : '';
+    return `<div class="g-detail" style="--cc:${CLASS_COLOR[it.cls]}">
+      <div class="gd-head"><div class="gd-ic">${this.gearIcon(it, era)}</div><div><b class="gd-name">${this.itemName(it)}</b>${lines}</div></div>
+      ${runeLine}
+      ${enh}
+      <div class="gd-btns">
+        ${on ? `<button data-gop="unequip" data-a="${it.slot}">ถอด</button>` : `<button class="main" data-gop="equip" data-a="${it.id}">ใส่</button>`}
+        <button class="main" data-gop="enhance" data-a="${it.id}" ${info && g.stones >= info.cost ? '' : 'disabled'}>ตีบวก <small>หิน ${info?.cost ?? 0}/${g.stones}</small></button>
+        <button data-gop="rune-pick">${rune ? 'เปลี่ยนรูน' : 'ใส่รูน'}</button>
+        ${rune ? `<button data-gop="rune" data-a="${it.id}" data-b="">ถอดรูน</button>` : ''}
+        <button class="danger" data-gop="salvage" data-a="${it.id}" ${on ? 'disabled' : ''}>แยกชิ้น <small>+${SALVAGE[it.cls]}</small></button>
+      </div>
+      ${picker}
+    </div>`;
+  }
+
+  private gearMine(g: GearState): string {
+    const got = this.gearLast?.runes?.length
+      ? `<div class="g-got">${this.gearLast.runes.map((r) => `<div class="rn" style="--tc:${TIER_COLOR[r.tier]}">${this.runeIcon(r)}<small>${TIERS[r.tier]} ${STAT_TH[r.stat]} +${runeValue(r)}%</small></div>`).join('')}</div>`
+      : '';
+    const runes = [...g.runes].sort((a, b) => b.tier - a.tier || a.stat.localeCompare(b.stat));
+    return `
+      <div class="g-mine">
+        <div class="gm-row">
+          <div class="gm-ic">${ico('pickaxe')}<b>${g.pickaxes}</b></div>
+          <div class="gm-txt"><b>Pickaxe</b><small>ขุด 1 ครั้ง: ${Math.round(DROP.mineChance * 100)}% ได้หิน ${DROP.mineStones[0]}–${DROP.mineStones[1]} ก้อน</small></div>
+          <button data-gop="mine" data-b="1" ${g.pickaxes ? '' : 'disabled'}>ขุด</button>
+          <button data-gop="mine" data-b="all" ${g.pickaxes ? '' : 'disabled'}>ทั้งหมด</button>
+        </div>
+        <div class="gm-row">
+          <div class="gm-ic">${ico('bomb')}<b>${g.bombs}</b></div>
+          <div class="gm-txt"><b>Bomb</b><small>ระเบิด 1 ลูก: ${Math.round(DROP.bombRune * 100)}% ได้รูน 1 ชิ้น</small></div>
+          <button data-gop="blast" data-b="1" ${g.bombs ? '' : 'disabled'}>ระเบิด</button>
+          <button data-gop="blast" data-b="all" ${g.bombs ? '' : 'disabled'}>ทั้งหมด</button>
+        </div>
+        <div class="gm-row"><div class="gm-ic">${ico('enh_stone')}<b>${g.stones}</b></div><div class="gm-txt"><b>หินตีบวก</b><small>ใช้ตีบวกอุปกรณ์ ครั้งละ 3 ก้อน</small></div></div>
+      </div>
+      ${got}
+      <div class="g-sec">กระเป๋ารูน (${g.runes.length})</div>
+      <div class="g-runes">${
+        runes.length
+          ? runes.map((r) => `<div class="rn ${r.on ? 'used' : ''}" style="--tc:${TIER_COLOR[r.tier]}">${this.runeIcon(r)}<small>${TIERS[r.tier]} ${STAT_TH[r.stat]} +${runeValue(r)}%${r.on ? ' ✓' : ''}</small></div>`).join('')
+          : '<div class="note">ยังไม่มีรูน</div>'
+      }</div>
+      <div class="note">ได้ Pickaxe / Bomb / Token ทุกครั้งที่ผ่านสเตจ (Pickaxe ${Math.round(DROP.pickaxe * 100)}%, Bomb ${Math.round(DROP.bomb * 100)}%)</div>`;
+  }
+
+  private gearGacha(g: GearState, era: number): string {
+    const left = LEGENDARY_PITY - g.gachaPity;
+    const got = this.gearLast?.items?.length
+      ? `<div class="g-sec">ได้รับ</div><div class="g-bag">${this.gearLast.items.map((it) => this.itemCell(it, g, era, `data-gitem="${it.id}"`)).join('')}</div>`
+      : '';
+    return `
+      <div class="g-gacha">
+        <div class="gg-tokens">${ico('token')}<b>${fmt(g.tokens)}</b><small>Token</small></div>
+        <div class="gg-btns">
+          <button class="main" data-gop="pull1" ${g.tokens >= PULL_COST_1 ? '' : 'disabled'}>สุ่ม 1 ครั้ง<small>${ico('token')} ${PULL_COST_1}</small></button>
+          <button class="main" data-gop="pull10" ${g.tokens >= PULL_COST_10 ? '' : 'disabled'}>สุ่ม 10 ครั้ง<small>${ico('token')} ${PULL_COST_10} • การันตี Gold+</small></button>
+        </div>
+        <div class="gg-pity">อีก <b>${left}</b> ครั้งการันตี Legendary</div>
+        <div class="gg-rates">${CLASSES.map((c, i) => `<span style="--cc:${CLASS_COLOR[i]}">${c} ${Math.round(PULL_RATE[i] * 1000) / 10}%</span>`).join('')}</div>
+      </div>
+      ${got}
+      <div class="note">ได้ Token จากการผ่านสเตจ และแยกชิ้นอุปกรณ์ที่ไม่ใช้ • อุปกรณ์ที่สุ่มได้ใส่ให้อัตโนมัติถ้าช่องนั้นยังว่าง</div>`;
   }
 
   renderCamp(d: CampData): void {
@@ -876,7 +1111,8 @@ export class UI {
           ยิงแคปซูล/แท่นสะสม EXP เต็มแล้วทหารในแคปซูล Level +1 (สูงสุด 10) • เดินชนแคปซูลใบเดียว ทุกใบบนแท่นแตก ทหารทั้งหมดจะไปยืนรอหลังเส้นแบ่งสเตจถัดไป วิ่งถึงเส้นแล้วได้ทหารเข้าฝูง •
           ป้ายอัตรายิง/ระยะยิง: ยิงแผงไม้ (ถ้ามี) ให้พัง แล้วยิงค่าให้ขึ้น (ค่าจริง = ค่าบนป้าย × 0.1%) แล้ววิ่งผ่าน •
           ศัตรูชุดดำปาอาวุธ โดนแล้วตาย 1 ตัว • ชนหอคอยทหารตายทีละตัว • กองเงินต้องเดินเก็บ •
-          ทหารหมดได้เงินที่เก็บมาไปอัปเกรด แล้วลองใหม่ • ผ่านยุคแล้วอัปเกรดรีเซ็ต • ใช้ดาวซื้ออัปเกรดถาวรที่ค่ายฝึก
+          ทหารหมดได้เงินที่เก็บมาไปอัปเกรด แล้วลองใหม่ • ผ่านยุคแล้วอัปเกรดรีเซ็ต • ใช้ดาวซื้ออัปเกรดถาวรที่ค่ายฝึก •
+          ผ่านแต่ละสเตจได้ Token / Pickaxe / Bomb ไปสุ่ม ขุด และตีบวกอุปกรณ์ในหน้าทีม แท็บอุปกรณ์ (ของถาวร)
         </div>
         <div class="note">ไม่มีโฆษณา • เล่นออฟไลน์ได้ • Stamina +1 ทุก 5 นาที (สูงสุด ${STAMINA_MAX})</div>
         <button class="ghost-btn danger" data-act="reset">ลบความคืบหน้าทั้งหมด</button>

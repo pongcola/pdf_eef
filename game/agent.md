@@ -1,6 +1,6 @@
 # CrowdAges — คู่มือสำหรับ Agent
 
-เอกสารนี้สรุปทุกอย่างที่ต้องรู้ก่อนแก้เกม CrowdAges (เวอร์ชันล่าสุด **4.6.0**, versionCode 20)
+เอกสารนี้สรุปทุกอย่างที่ต้องรู้ก่อนแก้เกม CrowdAges (เวอร์ชันล่าสุด **4.7.0**, versionCode 21)
 กฎที่ห้ามละเมิดอยู่ใน [`rule.md`](rule.md) • งานที่ทำแล้ว/ค้างอยู่ใน [`task.md`](task.md) • คู่มือผู้เล่นอยู่ใน [`README.md`](README.md)
 
 ---
@@ -23,7 +23,7 @@
 | UI | DOM overlay (`src/ui/ui.ts` + `styles.css`) ฟอนต์ Kanit |
 | Bundler | Vite 8 |
 | Android | Capacitor 8 (`appId: com.crowdages.game`) |
-| บันทึก | localStorage (save version 4) |
+| บันทึก | localStorage (save version 5) |
 
 โปรเจกต์อยู่ในโฟลเดอร์ `game/` ของ repo `pdf_eef` (ส่วนนอก `game/` เป็นโปรเจกต์อื่น ห้ามแตะ)
 
@@ -36,7 +36,8 @@ game/
 │  ├─ economy.ts       อัปเกรดในยุค, ค่ายฝึก (META), ราคา, รางวัล, MAX_SQUAD, MAX_CAPSULES
 │  ├─ eras.ts          ข้อมูล 6 ยุค (สี, ชื่อ), สีทีม, TIER_COLORS, tierLook()
 │  ├─ heroes.ts        ฮีโร่ 6 ตัว (สกิล, คูลดาวน์, ปลดล็อก)
-│  ├─ save.ts          SaveData v4 + migration v2/v3
+│  ├─ gear.ts          ระบบอุปกรณ์: ตัวเลขทั้งหมด + ตีบวก/Pity, รูน, เหมือง, สุ่ม, แยกชิ้น, stat (ไม่ผูก 3D/UI)
+│  ├─ save.ts          SaveData v5 + migration v2/v3/v4
 │  ├─ stamina.ts       คำนวณ stamina จากเวลาจริง
 │  ├─ audio.ts         เสียง (WebAudio สังเคราะห์)
 │  ├─ platform.ts      Capacitor: ปุ่ม back, haptics
@@ -55,13 +56,14 @@ game/
 │  │  ├─ boss.ts / obstacles.ts  (โค้ดเก่า ไม่ถูกสร้างในด่านแล้ว)
 │  │  └─ common.ts
 │  └─ ui/
-│     ├─ ui.ts         ทุกหน้าจอ: เมนู, HUD, ผลลัพธ์, ไทม์ไลน์, ค่ายฝึก, ทีม, ตั้งค่า, วงล้อ
+│     ├─ ui.ts         ทุกหน้าจอ: เมนู, HUD, ผลลัพธ์, ไทม์ไลน์, ค่ายฝึก, ทีม (ฮีโร่/อุปกรณ์), ตั้งค่า, วงล้อ
 │     ├─ styles.css    ธีมพาสเทล kawaii (ท้ายไฟล์) ทับธีมเก่า
 │     ├─ art.ts        ระบบ "ช่องรูป" (SLOTS) ใช้รูปถ้ามี ไม่มีใช้อีโมจิ
 │     └─ art/          รูป UI ทั้งหมด (ชื่อไฟล์ = key ใน SLOTS)
 ├─ android/            โปรเจกต์ Capacitor (keystore sideload อยู่ใน android/app)
 ├─ scripts/            make-icons.py (ไอคอนแอป), art/ (เครื่องมือรูปเก่า)
 ├─ tools/chromakey_icons.py  ตัดพื้นเขียว #00FF00 ครอป ย่อ 192×192
+├─ docs/              item-system-plan.md (แผนระบบอุปกรณ์), gemini-item-icons-prompt.md (prompt ไอคอนอุปกรณ์ + ตารางชื่อไฟล์)
 ├─ README.md / agent.md / rule.md / task.md
 ```
 
@@ -151,17 +153,28 @@ cd android && ANDROID_HOME=<sdk> ./gradlew assembleRelease --no-daemon -q --max-
 ### 5.7 ฮีโร่
 6 ตัว ปลดล็อกตามยุคที่ไปถึง (ยุค 1–6) วิ่งไปกับฝูง ใช้สกิลอัตโนมัติ อัปเลเวลด้วยถ้วย (2L+1) Level รีเซ็ตเป็น 1 ทุกยุคใหม่ ดาเมจสกิล × (1 + 0.4(L−1))
 นักปรุงยาเพี้ยน (ขวดกรด) • นักชกเพลิง (หมัดไฟ คริ) • คนตัดไม้ยักษ์ (ขวานทะลุ) • นักพรตสายลม (ลม 3 สาย) • นักบินโดรน (มิสไซล์) • นักล่าสมบัติ (ปืนคู่ ได้เงิน/ดาว)
-แท็บ Pets / Gears ในหน้า TEAM ยังเป็น "เร็วๆ นี้"
+แท็บ Pets ในหน้า TEAM ยังเป็น "เร็วๆ นี้"
 
-### 5.8 Save
-`SaveData` v4 ใน localStorage (key `crowd-ages-save-v1`): `level` = เลขยุครวม, coins, stars, trophies, stamina, upgrades, meta, heroes, settings, failStreak
-migration: v3 แปลงเลขด่านเป็นยุค `floor((level−1)/5)+1`, v2 ผ่านรอบ 30 ด่านเดิม
+### 5.8 อุปกรณ์ (v4.7.0) — `src/gear.ts`, แท็บ "อุปกรณ์" ในหน้าทีม
+ของถาวรทั้งหมด (ไม่รีเซ็ตตอนขึ้นยุค) เก็บใน `save.gear`
+- **ดรอปตอนผ่านสเตจ** (`stageDrop()` ใน game.ts เรียกตอนข้ามเส้นสเตจ 1→2, 2→3, เส้นชัย และตอนชนะ): Pickaxe 70%, Bomb 20%, Token 20–30 (สเตจ 1–3) / 150 (ทุ่งหอคอย) เข้าเซฟทันที แสดงใน toast และหน้าผลลัพธ์
+- **เหมือง**: Pickaxe 80% ได้หิน 1–3 • Bomb 50% ได้รูน (stat สุ่มเท่ากัน, tier B 60/A 28/S 10/SR 2%)
+- **สุ่ม**: 100 Token / 900 ต่อ 10 (การันตี Gold+) • Silver 60 / Gold 30 / Platinum 8.5 / Legendary 1.5% • Legendary การันตีครั้งที่ 80 (`gachaPity`) • ช่องว่างได้ชิ้นที่สุ่มได้ใส่ให้อัตโนมัติ
+- **6 ช่อง × 4 class** (`SLOT_STATS`, `ITEM_STAT`) • **ตีบวก** +1~+6 หิน 3 ก้อน โอกาส 80/70/50/40/20/10%, +5/+6 พลาดตก 1 ระดับ + Pity 10%/5% ต่อครั้ง (ตกระดับ pity ไม่หาย) ตัวคูณ ×1.05–×1.55
+- **รูน** 1 ช่อง/ชิ้น • **แยกชิ้น** Token 5/15/50/200 (ห้ามชิ้นที่ใส่อยู่)
+- **ผลในเกม** (`gearMods`, คำนวณตอนเริ่มรอบ): อัตรายิง × (1+Rate%), ระยะ × (1+Range%, เพดาน +100%), ดาเมจ × (1+Dmg%), **คริของทหาร** ฐาน 5% × 150% (เพดาน 100%) กระสุนคริเป็นลูกใหญ่ • คูณต่อจากป้ายสถานะ • ป้ายสถานะหาร Dmg% ออก • ฮีโร่ไม่ได้รับ
+- จำลองความสมดุล (สเตจที่ผ่านเฉลี่ย ~2.9/รอบ): ตี +6 หนึ่งชิ้น ~43 รอบ, Legendary แรก ~36 รอบ, รูน 1 ชิ้น ~3.5 รอบ, รูน SR ~190 รอบ
+
+### 5.9 Save
+`SaveData` v5 ใน localStorage (key `crowd-ages-save-v1`): `level` = เลขยุครวม, coins, stars, trophies, stamina, upgrades, meta, heroes, settings, failStreak
+migration: v4 → v5 เติม `gear` ว่าง (`normalizeGear`), v3 แปลงเลขด่านเป็นยุค `floor((level−1)/5)+1`, v2 ผ่านรอบ 30 ด่านเดิม
 
 ## 6. ระบบรูป UI (art slots)
 - วางไฟล์ `src/ui/art/<key>.png|jpg|webp|svg` ตาม key ใน `SLOTS` (`src/ui/art.ts`) แล้ว build → ใช้ทันที ไม่มีไฟล์ = ใช้อีโมจิ
 - ไอคอนใช้ `ico(key)` • ปุ่ม/การ์ดใช้ 9-slice ผ่าน `applySkins` (btn_play, btn_ghost, panel)
 - ชุด kawaii ล่าสุด (v4.5.0): 29 ไอคอน + era_card_1–3 จาก handoff zip ตัดพื้นเขียวด้วย `tools/chromakey_icons.py`
 - ช่องที่ยังใช้รูปชุดเก่า: coin, star, stamina, settings, team, trophy, hero_0–5, era_5, era_card_0/4/5, logo, banner_win/lose/newera, btn_play, btn_ghost, panel
+- ระบบอุปกรณ์: `token` (เหรียญสีเขียว ทำจาก coin.png เปลี่ยนสี), `pickaxe`, `bomb`, `enh_stone`, `gear_<slot>[_<class>]`, `gear_weapon_<ยุค>[_<class>]` (อาวุธเปลี่ยนตามยุค), `rune_<stat>[_<tier>]` — ใช้ `icoFirst()` ลองไฟล์เฉพาะก่อนแล้วถอยไปไฟล์ทั่วไป/อีโมจิ ตารางชื่อไฟล์อยู่ใน `docs/gemini-item-icons-prompt.md`
 - โทนสี: ครีม #fff8e7, น้ำตาลเส้น #4a2e20, พีช #ff9e7d, น้ำผึ้ง #ffd166, มินต์ #8ce99a, ฟ้าอ่อน #a5d8ff
 
 ## 7. ทำงานกับไฟล์ไหนเมื่อต้องการ…
@@ -177,6 +190,8 @@ migration: v3 แปลงเลขด่านเป็นยุค `floor((lev
 | ราคา/ผลอัปเกรด, รางวัล | `src/economy.ts` |
 | ข้อความ/หน้าจอ | `src/ui/ui.ts` (วิธีเล่นอยู่ในหน้าตั้งค่า) |
 | ฮีโร่ | `src/heroes.ts`, `src/render/heroes.ts`, `updateHeroSkill` ใน `game.ts` |
+| อุปกรณ์ (ตัวเลข/กติกา) | `src/gear.ts` (`DROP`, `ITEM_STAT`, `ENHANCE_*`, `RUNE_*`, `PULL_*`) |
+| อุปกรณ์ (ใช้ในเกม / หน้าจอ) | `gearAct`, `stageDrop`, `fire()` ใน `game.ts` • `gearBody`/`gearEquip`/`gearMine`/`gearGacha` ใน `ui.ts` |
 
 ## 8. เอกสารภายนอก
 - สเปกฟีเจอร์ (Claude Docs): https://claude.ai/artifact/R8eqYyAAdQs2tbhQw77sbh — อัปเดตทุกเวอร์ชัน

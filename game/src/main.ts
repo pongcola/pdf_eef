@@ -35,6 +35,7 @@ async function boot(): Promise<void> {
     team: () => game!.teamData(),
     heroUpgrade: (id) => game?.upgradeHero(id),
     heroEquip: (id) => game?.equipHero(id),
+    gear: (op, a, b) => game!.gearAct(op, a, b),
   });
   game = new Game(canvas, ui);
   ui.renderSettings(game.save.settings);

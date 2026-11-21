@@ -2026,3 +2026,106 @@ body {
 .side-btns {
   flex-wrap: wrap;
 }
+
+/* ================= แท็บอุปกรณ์ (Gear) ================= */
+.team-tro.token { background: #d9f7df; }
+.rw.token b { color: #1f9d55; }
+.rw.pick b, .rw.bomb b { color: var(--ink); }
+.ico.emo { font-style: normal; }
+
+.gsubs { display: flex; gap: 6px; margin-bottom: 8px; }
+.gsub {
+  flex: 1; min-height: 34px; border-radius: 999px; border: 2px solid var(--ink);
+  background: #fff8e7; color: var(--ink-soft); font-size: 14px; font-weight: 700;
+}
+.gsub.on { background: #8ce99a; color: var(--ink); }
+
+.g-msg { margin: 0 0 8px; padding: 6px 10px; border-radius: 12px; font-weight: 700; font-size: 14px; text-align: center; }
+.g-msg.good { background: #d9f7df; color: #1b7a3f; }
+.g-msg.bad { background: #ffe1dc; color: #b23b2c; }
+
+.gear-scroll { display: grid; gap: 10px; }
+
+.g-equip { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: start; }
+.g-slots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.g-stats { display: grid; gap: 3px; padding: 8px; border-radius: 14px; background: rgba(201, 139, 94, 0.14); font-size: 13px; }
+.gs { display: flex; gap: 4px; align-items: baseline; }
+.gs span { flex: 1; color: var(--ink-soft); }
+.gs b { font-size: 14px; }
+.gs em { font-style: normal; font-size: 12px; font-weight: 700; }
+.gs em.up { color: #1f9d55; }
+.gs em.down { color: #d9483b; }
+
+.gi {
+  position: relative; aspect-ratio: 1; display: grid; place-items: center; padding: 4px;
+  border-radius: 14px; border: 3px solid var(--cc, #c9b79f); background: #fffdf6;
+  box-shadow: inset 0 -4px 0 color-mix(in srgb, var(--cc, #c9b79f) 35%, transparent);
+}
+.gi .ico { width: 80%; height: 80%; font-size: 28px; display: grid; place-items: center; object-fit: contain; }
+.gi.sel { outline: 3px solid var(--ink); outline-offset: 1px; }
+.gi.empty { border-style: dashed; background: rgba(255, 255, 255, 0.4); align-content: center; gap: 0; }
+.gi.empty .gi-ph { opacity: 0.35; filter: grayscale(1); width: 60%; display: grid; place-items: center; }
+.gi.empty .gi-ph .ico { width: 100%; height: auto; font-size: 22px; }
+.gi.empty small { font-size: 11px; color: var(--ink-soft); }
+.gi-plus {
+  position: absolute; right: 2px; bottom: 1px; font-size: 12px; font-weight: 800; color: #fff;
+  text-shadow: 0 0 2px var(--ink), 0 0 2px var(--ink), 0 0 2px var(--ink);
+}
+.gi-rune { position: absolute; left: 4px; top: 4px; width: 10px; height: 10px; border-radius: 50%; background: var(--tc); border: 2px solid var(--ink); }
+.gi-on { position: absolute; right: 3px; top: 1px; font-size: 12px; font-weight: 800; color: #1f9d55; }
+
+.g-detail { border: 3px solid var(--cc); border-radius: 16px; padding: 10px; background: #fffdf6; display: grid; gap: 6px; }
+.gd-head { display: flex; gap: 10px; align-items: center; font-size: 13px; }
+.gd-ic { width: 60px; height: 60px; flex: none; display: grid; place-items: center; border-radius: 12px; background: color-mix(in srgb, var(--cc) 22%, #fff); }
+.gd-ic .ico { width: 52px; height: 52px; font-size: 36px; display: grid; place-items: center; object-fit: contain; }
+.gd-name { font-size: 16px; display: block; }
+.g-rune { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.g-rune .ico { width: 22px; height: 22px; font-size: 16px; }
+.g-rune.none { color: var(--ink-soft); }
+.g-enh { font-size: 13px; padding: 6px 8px; border-radius: 10px; background: rgba(255, 209, 102, 0.25); }
+.g-enh .warn { color: #b23b2c; font-weight: 700; }
+.gd-btns { display: flex; flex-wrap: wrap; gap: 6px; }
+.gd-btns button, .gm-row button, .gg-btns button {
+  flex: 1 1 auto; min-height: 36px; padding: 2px 10px; border-radius: 12px; border: 2px solid var(--ink);
+  background: #fff8e7; color: var(--ink); font-size: 14px; font-weight: 700; display: grid; place-items: center; line-height: 1.15;
+}
+.gd-btns button.main, .gg-btns button.main { background: #ff9e7d; }
+.gd-btns button.danger { background: #ffe1dc; }
+.gd-btns button small, .gg-btns button small { font-size: 11px; font-weight: 600; display: flex; align-items: center; gap: 3px; }
+.gd-btns button:disabled, .gm-row button:disabled, .gg-btns button:disabled { opacity: 0.45; }
+
+.g-sec { font-weight: 800; font-size: 15px; margin-top: 4px; }
+.g-filters { display: flex; flex-wrap: wrap; gap: 4px; }
+.gf { padding: 2px 10px; min-height: 28px; border-radius: 999px; border: 2px solid var(--ink); background: #fff8e7; font-size: 12px; font-weight: 700; color: var(--ink-soft); }
+.gf.on { background: #ffe066; color: var(--ink); }
+.g-bag { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.g-bag .note { grid-column: 1 / -1; }
+
+.g-runes, .g-got { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+.rn {
+  display: flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 12px; text-align: left;
+  border: 2px solid var(--tc); background: color-mix(in srgb, var(--tc) 14%, #fffdf6); color: var(--ink);
+}
+.rn .ico { width: 24px; height: 24px; font-size: 18px; flex: none; }
+.rn small { font-size: 12px; font-weight: 700; line-height: 1.2; }
+.rn.used { opacity: 0.6; }
+
+.g-mine { display: grid; gap: 8px; }
+.gm-row { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 14px; background: rgba(201, 139, 94, 0.14); }
+.gm-row button { flex: 0 0 auto; min-width: 64px; }
+.gm-ic { position: relative; width: 44px; height: 44px; display: grid; place-items: center; flex: none; }
+.gm-ic .ico { width: 40px; height: 40px; font-size: 28px; display: grid; place-items: center; }
+.gm-ic b { position: absolute; right: -4px; bottom: -4px; min-width: 22px; padding: 0 4px; border-radius: 999px; background: var(--ink); color: #fff; font-size: 12px; text-align: center; }
+.gm-txt { flex: 1; display: grid; font-size: 14px; min-width: 0; }
+.gm-txt small { font-size: 11px; color: var(--ink-soft); }
+
+.g-gacha { display: grid; gap: 8px; justify-items: center; padding: 10px; border-radius: 16px; background: linear-gradient(160deg, #d9f7df, #fff3c4); }
+.gg-tokens { display: flex; align-items: center; gap: 6px; font-size: 26px; }
+.gg-tokens .ico { width: 36px; height: 36px; }
+.gg-tokens small { font-size: 13px; color: var(--ink-soft); }
+.gg-btns { display: flex; gap: 8px; width: 100%; }
+.gg-btns button { min-height: 54px; }
+.gg-btns .ico { width: 14px; height: 14px; font-size: 12px; }
+.gg-pity { font-size: 14px; }
+.gg-rates { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; }
+.gg-rates span { padding: 1px 8px; border-radius: 999px; border: 2px solid var(--cc); background: #fffdf6; font-size: 12px; font-weight: 700; }
