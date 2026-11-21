@@ -182,3 +182,4 @@ migration: v3 แปลงเลขด่านเป็นยุค `floor((lev
 - สเปกฟีเจอร์ (Claude Docs): https://claude.ai/artifact/R8eqYyAAdQs2tbhQw77sbh — อัปเดตทุกเวอร์ชัน
 - หน้า redesign ทหาร/อาวุธ + prompt: https://claude.ai/artifact/3zwzQSkKZ12EFhDg9CReE6
 - Brief สำหรับ Gemini: `CrowdAges_Troop_Gemini_Brief.md` (ส่งให้ผู้ใช้แล้ว ไม่ได้อยู่ใน repo)
+- แผนระบบอุปกรณ์: `docs/item-system-plan.md` • prompt ไอคอนอุปกรณ์: `docs/gemini-item-icons-prompt.md`
