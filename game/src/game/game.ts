@@ -61,6 +61,7 @@ import { makeBlobShadow } from '../render/common.ts';
 import { Particles } from '../render/particles.ts';
 import { Projectiles, enemyThrowGeometry } from '../render/projectiles.ts';
 import { troopPortrait } from '../render/portrait.ts';
+import { artUrl, type SlotKey } from '../ui/art.ts';
 import {
   BlockTarget,
   CapsuleTarget,
@@ -1489,7 +1490,7 @@ export class Game {
       equipped: h.equipped,
       gear: this.save.gear,
       era: eraIndexForLevel(this.save.level),
-      troopImg: troopPortrait(eraIndexForLevel(this.save.level)),
+      troopImg: artUrl(`troop_${eraIndexForLevel(this.save.level)}` as SlotKey) ?? troopPortrait(eraIndexForLevel(this.save.level)),
       heroes: HEROES.map((d) => {
         const lvl = h.levels[d.id] ?? 1;
         const cost = heroUpgradeCost(lvl);

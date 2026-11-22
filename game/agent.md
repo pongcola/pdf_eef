@@ -1,6 +1,6 @@
 # CrowdAges — คู่มือสำหรับ Agent
 
-เอกสารนี้สรุปทุกอย่างที่ต้องรู้ก่อนแก้เกม CrowdAges (เวอร์ชันล่าสุด **4.8.0**, versionCode 22)
+เอกสารนี้สรุปทุกอย่างที่ต้องรู้ก่อนแก้เกม CrowdAges (เวอร์ชันล่าสุด **4.9.0**, versionCode 23)
 กฎที่ห้ามละเมิดอยู่ใน [`rule.md`](rule.md) • งานที่ทำแล้ว/ค้างอยู่ใน [`task.md`](task.md) • คู่มือผู้เล่นอยู่ใน [`README.md`](README.md)
 
 ---
@@ -47,7 +47,7 @@ game/
 │  │  ├─ level.ts      สร้างด่านจาก seed (สเตจ 1–3 + ทุ่งหอคอย) สูตรความยากทั้งหมด
 │  │  └─ squad.ts      ตำแหน่ง/การจัดฝูง
 │  ├─ render/
-│  │  ├─ units.ts      โมเดลทหาร chibi ต่อยุค + shader แกว่งแขนขา + UnitSwarm
+│  │  ├─ units.ts      โมเดลทหาร chibi ต่อยุค (ตามรูป Gemini v4.9) + ศัตรูชุดดำมีจุดเด่นแต่ละยุค (`rival`) + shader แกว่งแขนขา/สีรุ้ง + UnitSwarm
 │  │  ├─ targets.ts    หุ่นไล่กา, แท่นแคปซูล, ป้ายสถานะ, หอคอย, กองเงิน
 │  │  ├─ projectiles.ts กระสุนตามยุค + อาวุธที่ศัตรูปาตามยุค (`enemyThrowGeometry`)
 │  │  ├─ heroes.ts     โมเดลฮีโร่
@@ -64,6 +64,7 @@ game/
 ├─ scripts/            make-icons.py (ไอคอนแอป), art/ (เครื่องมือรูปเก่า)
 ├─ tools/chromakey_icons.py  ตัดพื้นเขียว #00FF00 ครอป ย่อ 192×192
 ├─ tests/             gear-rules.ts (ทดสอบกติกาอุปกรณ์: npx tsx tests/gear-rules.ts), campaign-bot.cjs (บอทปรับสมดุล)
+├─ docs/troop-art/    รูปอ้างอิงทหาร/ศัตรู/กระสุน/แบบ 3 มุม (ไม่ได้ใส่ใน APK)
 ├─ docs/              item-system-plan.md (แผนระบบอุปกรณ์), gemini-item-icons-prompt.md (prompt ไอคอนอุปกรณ์ + ตารางชื่อไฟล์)
 ├─ README.md / agent.md / rule.md / task.md
 ```

@@ -45,6 +45,13 @@ export const SLOTS = {
   stat_power: { emoji: '💥', label: 'พลังยิง', size: ICON, where: 'HUD ค่าพลังระหว่างเล่น' },
   trophy: { emoji: '🏆', label: 'ถ้วยรางวัล', size: ICON, where: 'รางวัลจบด่าน, หน้าทีม (อัปเกรดฮีโร่)' },
   team: { emoji: '🦸', label: 'ปุ่มฮีโร่', size: ICON, where: 'เมนู (ปุ่มหน้าทีม)' },
+  // ----- ทหารแต่ละยุค (หน้าสวมใส่อุปกรณ์; ไม่มีไฟล์ = ใช้ภาพ 3D จากโมเดล) -----
+  troop_0: { emoji: '', label: 'ทหารยุคหิน', size: '256×256', where: 'หน้าสวมใส่อุปกรณ์' },
+  troop_1: { emoji: '', label: 'ทหารยุคโบราณ', size: '256×256', where: 'หน้าสวมใส่อุปกรณ์' },
+  troop_2: { emoji: '', label: 'ทหารยุคอัศวิน', size: '256×256', where: 'หน้าสวมใส่อุปกรณ์' },
+  troop_3: { emoji: '', label: 'ทหารยุคดินปืน', size: '256×256', where: 'หน้าสวมใส่อุปกรณ์' },
+  troop_4: { emoji: '', label: 'ทหารยุคสมัยใหม่', size: '256×256', where: 'หน้าสวมใส่อุปกรณ์' },
+  troop_5: { emoji: '', label: 'ทหารยุคอนาคต', size: '256×256', where: 'หน้าสวมใส่อุปกรณ์' },
   // ----- ระบบอุปกรณ์ -----
   token: { emoji: '🟢', label: 'Token (เหรียญสีเขียว)', size: ICON, where: 'แท็บอุปกรณ์, หน้าผลลัพธ์' },
   pickaxe: { emoji: '⛏️', label: 'Pickaxe', size: ICON, where: 'แท็บเหมือง, หน้าผลลัพธ์' },

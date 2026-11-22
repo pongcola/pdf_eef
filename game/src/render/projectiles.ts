@@ -3,7 +3,6 @@ import {
   BufferGeometry,
   ConeGeometry,
   CylinderGeometry,
-  DodecahedronGeometry,
   DynamicDrawUsage,
   InstancedMesh,
   MeshLambertMaterial,
@@ -28,25 +27,27 @@ interface Shot {
 }
 
 /** อาวุธที่ขว้าง/ยิงออกไป เปลี่ยนตามยุค (หันไปทาง -Z) */
-function projectileGeometry(era: number): { geo: BufferGeometry; tumble: boolean } {
+export function projectileGeometry(era: number): { geo: BufferGeometry; tumble: boolean } {
   const E = ERAS[era];
   const m = (parts: BufferGeometry[]) => mergeGeometries(parts, false)!;
   switch (E.decor) {
-    case 'stone':
-      return { geo: m([part(new DodecahedronGeometry(0.13, 0), 0x8d8a85, 0, 0, 0)]), tumble: true };
-    case 'ancient':
+    case 'stone': // หินกลมมน
+      return { geo: m([part(new SphereGeometry(0.12, 10, 8), 0x9a958c, 0, 0, 0, { sy: 0.9 }), part(new SphereGeometry(0.06, 8, 6), 0xd8c7a8, -0.04, 0.05, -0.05)]), tumble: true };
+    case 'ancient': // หอกซัดปลายทอง + พู่
       return {
         geo: m([
-          part(new CylinderGeometry(0.025, 0.025, 0.75, 5), E.weapon, 0, 0, 0.05, { rx: Math.PI / 2 }),
-          part(new ConeGeometry(0.06, 0.18, 5), E.metal, 0, 0, -0.4, { rx: -Math.PI / 2 }),
+          part(new CylinderGeometry(0.025, 0.025, 0.6, 5), 0xc9945a, 0, 0, 0.08, { rx: Math.PI / 2 }),
+          part(new ConeGeometry(0.06, 0.18, 6), 0xf2c94c, 0, 0, -0.3, { rx: -Math.PI / 2 }),
+          part(new SphereGeometry(0.035, 6, 4), 0xff9e7d, 0.03, -0.03, -0.18),
         ]),
         tumble: false,
       };
-    case 'medieval':
+    case 'medieval': // ขวานสองคมหมุน
       return {
         geo: m([
-          part(new BoxGeometry(0.05, 0.05, 0.42), E.weapon, 0, 0, 0.06),
-          part(new BoxGeometry(0.04, 0.24, 0.16), E.metal, 0, 0.08, -0.14),
+          part(new CylinderGeometry(0.03, 0.03, 0.42, 6), 0xc9945a, 0, 0, 0.06, { rx: Math.PI / 2 }),
+          part(new BoxGeometry(0.035, 0.26, 0.14), 0xc9d1dc, 0, 0, -0.12),
+          ...[-1, 1].map((e) => part(new CylinderGeometry(0.09, 0.09, 0.035, 10, 1, false, 0, Math.PI), 0xe2e8ef, 0, e * 0.13, -0.12, { rz: Math.PI / 2, ry: e > 0 ? 0 : Math.PI })),
         ]),
         tumble: true,
       };
@@ -62,16 +63,23 @@ function projectileGeometry(era: number): { geo: BufferGeometry; tumble: boolean
         ]),
         tumble: false,
       };
-    case 'modern':
+    case 'modern': // กระสุนทองเหลือง + เปลวสั้นๆ
       return {
         geo: m([
-          part(new CylinderGeometry(0.045, 0.045, 0.22, 6), 0xd9a83a, 0, 0, 0.04, { rx: Math.PI / 2 }),
-          part(new ConeGeometry(0.045, 0.1, 6), 0xc27a2c, 0, 0, -0.12, { rx: -Math.PI / 2 }),
+          part(new CylinderGeometry(0.05, 0.05, 0.18, 8), 0xe8b04a, 0, 0, 0.03, { rx: Math.PI / 2 }),
+          part(new SphereGeometry(0.05, 8, 6), 0xc98a4a, 0, 0, -0.06, { sz: 1.4 }),
+          part(new ConeGeometry(0.045, 0.16, 6), 0xff9e7d, 0, 0, 0.2, { rx: Math.PI / 2 }),
         ]),
         tumble: false,
       };
-    case 'future':
-      return { geo: m([part(new BoxGeometry(0.07, 0.07, 0.7), 0x6ff7ff, 0, 0, 0)]), tumble: false };
+    case 'future': // ลำแสงฟ้าหัวกลม
+      return {
+        geo: m([
+          part(new SphereGeometry(0.07, 10, 8), 0xc9fbff, 0, 0, -0.18),
+          part(new CylinderGeometry(0.045, 0.02, 0.5, 8), 0x6ff7ff, 0, 0, 0.1, { rx: Math.PI / 2 }),
+        ]),
+        tumble: false,
+      };
   }
 }
 
