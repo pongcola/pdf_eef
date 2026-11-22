@@ -1,6 +1,6 @@
 import {
   AmbientLight,
-  BoxGeometry,
+  type BufferGeometry,
   CanvasTexture,
   Group,
   Mesh,
@@ -19,10 +19,8 @@ import {
   BASE_FIRE_RATE,
   FIRE_RATE_SCALE,
   BASE_RANGE,
-  BOSS_STOMP_INTERVAL,
   STAGES_PER_ERA,
   STAT_GATE_SCALE,
-  BOSS_STOMP_KILL,
   COINS_PER_STAR,
   ERA_CLEAR_STAMINA,
   ERA_CLEAR_STARS,
@@ -59,14 +57,12 @@ import { consumeStamina, refreshStamina } from '../stamina.ts';
 import * as Gear from '../gear.ts';
 import { addDrops, emptyDrops, gearMods, rollStageDrops, type Drops, type GearMods } from '../gear.ts';
 import type { GearActResult, GearOp } from '../ui/ui.ts';
-import { Boss } from '../render/boss.ts';
 import { makeBlobShadow } from '../render/common.ts';
-import { createObstacle, type Obstacle } from '../render/obstacles.ts';
 import { Particles } from '../render/particles.ts';
-import { Projectiles } from '../render/projectiles.ts';
+import { Projectiles, enemyThrowGeometry } from '../render/projectiles.ts';
+import { troopPortrait } from '../render/portrait.ts';
 import {
   BlockTarget,
-  CageTarget,
   CapsuleTarget,
   troopMesh,
   CashStack,
@@ -85,7 +81,7 @@ import type { Object3D } from 'three';
 import { generateLevel, STAT_LABEL, type LevelData } from './level.ts';
 import { Squad } from './squad.ts';
 
-type State = 'menu' | 'run' | 'bonus' | 'boss' | 'won' | 'lost' | 'result' | 'paused';
+type State = 'menu' | 'run' | 'bonus' | 'won' | 'lost' | 'result' | 'paused';
 export type EraState = 'clear' | 'current' | 'next' | 'locked';
 
 export interface EraClear {
@@ -127,7 +123,6 @@ interface EnemyGroup {
   charging: boolean;
 }
 
-const BOSS_STOP = 10.5;
 
 /** ทหารจากแคปซูลที่ชนแตก: เดินไปยืนรอหลังเส้นแบ่งสเตจถัดไป */
 interface Waiter {
@@ -181,7 +176,7 @@ function gaugeHits(extra: number): number {
 }
 
 /** เป้าของสกิลฮีโร่ */
-type HeroTarget = { kind: 't'; t: Target } | { kind: 'e'; u: EnemyUnit } | { kind: 'b' };
+type HeroTarget = { kind: 't'; t: Target } | { kind: 'e'; u: EnemyUnit };
 
 /** วัตถุสกิลที่กำลังบิน */
 interface HeroFx {
@@ -209,8 +204,7 @@ interface Dot {
   t: number;
   color: number;
 }
-const ENEMY_SHOT_GEO = new BoxGeometry(0.12, 0.12, 0.7);
-const ENEMY_SHOT_MAT = new MeshLambertMaterial({ color: 0xc0303a });
+const ENEMY_SHOT_MAT = new MeshLambertMaterial({ vertexColors: true });
 
 export class Game {
   readonly renderer: WebGLRenderer;
@@ -223,18 +217,13 @@ export class Game {
   private pausedFrom: State = 'run';
   private level!: LevelData;
   private world: World | null = null;
-  private hazards: Obstacle[] = [];
   private blocks: BlockTarget[] = [];
-  private cages: CageTarget[] = [];
   private pads: RecruitPad[] = [];
   private crystals: CrystalTarget[] = [];
   private gates: StatGate[] = [];
   private targets: Target[] = [];
   private active: Target[] = [];
   private enemies: EnemyGroup[] = [];
-  private boss: Boss | null = null;
-  private bossPending = 0;
-  private bossPendT = 0;
 
   private squad = new Squad();
   /** ฝูงแยกตามระดับทหาร (สีต่างกัน) */
@@ -268,6 +257,7 @@ export class Game {
   /** แคปซูลที่ได้เพิ่มจากหลอดซ้าย (อยู่ตลอดรอบ) */
   private capBonus = 0;
   private enemyShots: EnemyShot[] = [];
+  private enemyShotGeo: BufferGeometry = enemyThrowGeometry(0);
   private ramT = 0;
   private hero: HeroModel | null = null;
   private heroDef: HeroDef = HEROES[0];
@@ -281,10 +271,6 @@ export class Game {
   private dist = 0;
   private speed = 0;
   private bonusT = 0;
-  private bossHp = 0;
-  private stompTimer = 0;
-  private bossTime = 0;
-  private hurtFx = 0;
   private endTimer = 0;
   private shake = 0;
   private dragging = false;
@@ -391,18 +377,13 @@ export class Game {
     }
     for (const c of this.cash) c.group.removeFromParent();
     this.cash = [];
-    for (const h of this.hazards) h.group.removeFromParent();
     for (const e of this.enemies) e.swarm.dispose();
-    this.boss?.dispose();
-    this.boss = null;
     this.targets = [];
     this.active = [];
     this.blocks = [];
-    this.cages = [];
     this.pads = [];
     this.crystals = [];
     this.gates = [];
-    this.hazards = [];
     this.enemies = [];
     this.particles.clear();
     this.projectiles?.clear();
@@ -426,7 +407,7 @@ export class Game {
     });
     const L = this.level;
     const era = L.era;
-    this.world = new World(this.scene, ERAS[era], { finishD: L.finishD, endD: L.endD, arena: L.eraBoss }, L.hard * 31 + 7);
+    this.world = new World(this.scene, ERAS[era], { finishD: L.finishD, endD: L.endD, arena: false }, L.hard * 31 + 7);
     // เส้นแบ่งสเตจ 2 และ 3 (สเตจ 4 ใช้เส้นชัยเดิม)
     for (let st = 1; st < L.stageD.length - 1; st++) {
       const line = makeStageLine(st + 1, -L.stageD[st]);
@@ -441,12 +422,6 @@ export class Game {
           const b = new BlockTarget(era, it.x, z, it.hp, it.coins);
           this.blocks.push(b);
           this.addTarget(b);
-          break;
-        }
-        case 'cage': {
-          const c = new CageTarget(era, it.x, z, it.hp, it.prisoners, it.cash);
-          this.cages.push(c);
-          this.addTarget(c);
           break;
         }
         case 'stat': {
@@ -492,18 +467,7 @@ export class Game {
           this.cash.push(c);
           break;
         }
-        case 'obstacle': {
-          const o = createObstacle(it);
-          this.scene.add(o.group);
-          this.hazards.push(o);
-          break;
-        }
       }
-    }
-
-    if (L.eraBoss) {
-      this.boss = new Boss(era, -L.endD, true);
-      this.scene.add(this.boss.group);
     }
 
     if (this.swarmEra !== era || !this.swarms.length) {
@@ -515,6 +479,9 @@ export class Game {
       for (const sw of this.swarms) this.scene.add(sw.mesh);
       this.scene.add(this.projectiles.mesh);
       this.swarmEra = era;
+      // อาวุธที่ศัตรูปาเปลี่ยนตามยุค
+      this.enemyShotGeo = enemyThrowGeometry(era);
+      for (const sh of this.enemyShots) sh.mesh.geometry = this.enemyShotGeo;
     }
 
     this.setupHero();
@@ -556,7 +523,6 @@ export class Game {
   toMenu(): void {
     this.state = 'menu';
     this.ui.hideHud();
-    this.ui.hideBossBar();
     this.refreshMenu();
   }
 
@@ -644,14 +610,14 @@ export class Game {
     this.hintTimer = 2.6;
     this.ui.hideMenu();
     this.ui.hideResult();
-    this.ui.showHud(this.level.level, this.level.timeline, this.level.eraBoss);
+    this.ui.showHud(this.level.level, this.level.timeline);
     this.ui.showHint(true);
     this.updateHud();
     sfx.click();
   }
 
   pause(): void {
-    if (this.state !== 'run' && this.state !== 'boss' && this.state !== 'bonus') return;
+    if (this.state !== 'run' && this.state !== 'bonus') return;
     this.pausedFrom = this.state;
     this.state = 'paused';
     this.dragging = false;
@@ -683,7 +649,7 @@ export class Game {
 
   onBack(): void {
     if (this.ui.closeOverlays()) return;
-    if (this.state === 'run' || this.state === 'boss' || this.state === 'bonus') this.pause();
+    if (this.state === 'run' || this.state === 'bonus') this.pause();
     else if (this.state === 'paused') this.resume();
     else if (this.state === 'result') this.quitToMenu();
     else if (this.state === 'menu') exitApp();
@@ -705,9 +671,8 @@ export class Game {
     if (running) {
       sharedTime.value += dt;
       this.t += dt;
-      if (this.state === 'run' || this.state === 'bonus' || this.state === 'boss') this.updatePlay(dt);
+      if (this.state === 'run' || this.state === 'bonus') this.updatePlay(dt);
       else if (this.state === 'won' || this.state === 'lost') this.updateEnd(dt);
-      for (const h of this.hazards) if (Math.abs(h.z - this.squad.z) < 90) h.update(this.t, dt);
       for (const t of this.targets) if (Math.abs(t.z - this.squad.z) < 90) t.update(dt, this.t);
       for (const c of this.cash) if (Math.abs(c.z - this.squad.z) < 90) c.update(this.t);
       this.updateWaiters(dt);
@@ -731,7 +696,6 @@ export class Game {
 
     // ---- เคลื่อนที่ ----
     let target = RUN_SPEED;
-    if (this.state === 'boss' && this.dist >= L.endD - BOSS_STOP) target = 0;
     // ทุ่งหอคอย: ชนหอคอยแล้วหยุด ทหารตายทีละตัวจนกว่าจะยิงหอคอยแตก
     const wall = this.state === 'bonus' ? this.towerAhead() : null;
     if (wall) {
@@ -746,8 +710,7 @@ export class Game {
       }
     } else this.ramT = 0.15;
     this.speed += (target - this.speed) * (1 - Math.exp(-dt * (target === 0 ? 14 : 5)));
-    if (this.state === 'boss') this.dist = Math.min(this.dist + this.speed * dt, L.endD - BOSS_STOP);
-    else this.dist += this.speed * dt;
+    this.dist += this.speed * dt;
     this.squad.z = -this.dist;
     const lim = this.squad.maxX();
     this.squad.targetX = Math.max(-lim, Math.min(lim, this.squad.targetX));
@@ -797,8 +760,6 @@ export class Game {
         this.ui.floatText(`ผ่านยุค!`, p.x, p.y, true);
         this.win();
       }
-    } else {
-      this.updateBoss(dt);
     }
     this.updateHud();
   }
@@ -846,14 +807,6 @@ export class Game {
       this.damageTarget(best, dmg);
       return true;
     }
-    // บอส
-    if (this.boss && this.state === 'boss' && this.bossHp > 0) {
-      const bz = this.boss.group.position.z;
-      if (z1 <= bz + this.boss.radius && Math.abs(x) < this.boss.radius * 1.2) {
-        this.damageBoss(dmg);
-        return true;
-      }
-    }
     return false;
   }
 
@@ -865,18 +818,6 @@ export class Game {
       this.particles.burst(u.x, 0.6, u.z, ENEMY_COLOR, 6, 4);
       sfx.pop();
       if (Math.random() < 0.35) this.spawnCash(u.x, u.z, Math.round(2 + this.level.hard * 0.6));
-    }
-  }
-
-  private damageBoss(dmg: number): void {
-    if (!this.boss || this.bossHp <= 0) return;
-    this.bossHp = Math.max(0, this.bossHp - dmg);
-    this.bossPending += dmg;
-    this.hurtFx += 1;
-    if (this.hurtFx > 6) {
-      this.hurtFx = 0;
-      this.boss.hurt();
-      sfx.hit();
     }
   }
 
@@ -919,13 +860,6 @@ export class Game {
       this.particles.burst(best.x, 1.2, best.z, 0x9a958c, 16, 6, 0.2, 0.9);
       sfx.hit();
     }
-    if (best instanceof CageTarget) {
-      // ปล่อยเงินทุกๆ 25% ของเลือด
-      while (best.drops < 4 && best.hp <= best.maxHp * (1 - (best.drops + 1) * 0.25)) {
-        best.drops++;
-        this.spawnCash(best.x + (Math.random() - 0.5) * 1.6, best.z + 1.6 + Math.random(), best.cashValue);
-      }
-    }
     if (dead) this.onDestroyed(best);
   }
 
@@ -940,13 +874,6 @@ export class Game {
       this.ui.coinPop(`+${v}`, p.x, p.y);
       sfx.breakBlock();
       buzz('light');
-    } else if (t instanceof CageTarget) {
-      t.group.visible = false;
-      this.particles.burst(t.x, 1, t.z, 0x4a4f5a, 18, 6, 0.16, 0.9);
-      for (const s of t.prisonerSpots()) this.addTroop(1, s.x, s.z);
-      this.ui.floatText(`+${t.prisoners} 🧍`, p.x, p.y, true);
-      sfx.join();
-      buzz('medium');
     } else if (t instanceof CrystalTarget) {
       t.group.visible = false;
       this.particles.burst(t.x, 1.4, t.z, t.color, 22, 7, 0.2, 1.0);
@@ -1058,9 +985,9 @@ export class Game {
   }
 
   /** สถิติการตายของทหาร (ใช้ตรวจความยาก) */
-  readonly deaths = { block: 0, hazard: 0, enemy: 0, boss: 0 };
+  readonly deaths = { block: 0, enemy: 0 };
 
-  private killTroop(i: number, cause: 'block' | 'hazard' | 'enemy' | 'boss'): void {
+  private killTroop(i: number, cause: 'block' | 'enemy'): void {
     this.deaths[cause]++;
     const tr = this.squad.troops[i];
     const wx = this.clampX(this.squad.x + tr.ox);
@@ -1123,27 +1050,6 @@ export class Game {
       this.ui.floatText(`+${n} ทหาร Lv.${p.level}`, q.x, q.y, true);
       sfx.breakBlock();
       buzz('medium');
-    }
-    const solid: Target[] = [...this.cages];
-    for (const b of solid) {
-      if (!b.alive || Math.abs(b.z - this.squad.z) > r + 1.6) continue;
-      for (let i = this.squad.troops.length - 1; i >= 0; i--) {
-        const tr = this.squad.troops[i];
-        const wx = this.clampX(this.squad.x + tr.ox);
-        const wz = this.squad.z + tr.oz;
-        if (Math.abs(wx - b.x) < b.halfW + 0.15 && Math.abs(wz - b.z) < b.halfD + 0.2) {
-          // ชนแล้วทหารตาย แต่เลือดของสิ่งกีดขวางไม่ลด
-          this.killTroop(i, 'block');
-        }
-      }
-    }
-    for (const h of this.hazards) {
-      if (Math.abs(h.z - this.squad.z) > r + 1.5) continue;
-      for (let i = this.squad.troops.length - 1; i >= 0; i--) {
-        const tr = this.squad.troops[i];
-        const wx = this.clampX(this.squad.x + tr.ox);
-        if (h.hits(wx, this.squad.z + tr.oz)) this.killTroop(i, 'hazard');
-      }
     }
   }
 
@@ -1318,7 +1224,7 @@ export class Game {
   private throwAt(u: EnemyUnit): void {
     let sh = this.enemyShots.find((s) => !s.alive);
     if (!sh) {
-      const mesh = new Mesh(ENEMY_SHOT_GEO, ENEMY_SHOT_MAT);
+      const mesh = new Mesh(this.enemyShotGeo, ENEMY_SHOT_MAT);
       this.scene.add(mesh);
       sh = { mesh, x0: 0, z0: 0, x1: 0, z1: 0, t: 0, dur: 1, alive: false };
       this.enemyShots.push(sh);
@@ -1390,21 +1296,17 @@ export class Game {
     for (const g of this.enemies) {
       for (const u of g.units) if (u.alive && u.z < sz - 1 && u.z > sz - range) out.push({ kind: 'e', u });
     }
-    if (this.boss && this.state === 'boss' && this.bossHp > 0) out.push({ kind: 'b' });
     return out;
   }
 
   private tPos(h: HeroTarget): { x: number; z: number; y: number } {
     if (h.kind === 't') return { x: h.t.x, z: h.t.z, y: h.t.kind === 'crystal' ? 1.8 : 1.0 };
-    if (h.kind === 'e') return { x: h.u.x, z: h.u.z, y: 0.8 };
-    const b = this.boss!;
-    return { x: 0, z: b.group.position.z + b.radius * 0.6, y: 2.5 };
+    return { x: h.u.x, z: h.u.z, y: 0.8 };
   }
 
   private tAlive(h: HeroTarget): boolean {
     if (h.kind === 't') return h.t.alive;
-    if (h.kind === 'e') return h.u.alive;
-    return this.bossHp > 0;
+    return h.u.alive;
   }
 
   private tHit(h: HeroTarget, dmg: number): void {
@@ -1412,8 +1314,7 @@ export class Game {
     if (h.kind === 't') {
       h.t.pending += 0; // ตัวเลขดาเมจแสดงผ่าน pending ใน hit()
       this.damageTarget(h.t, dmg);
-    } else if (h.kind === 'e') this.damageEnemy(h.u, dmg);
-    else this.damageBoss(dmg);
+    } else this.damageEnemy(h.u, dmg);
   }
 
   /** ดาเมจวงกว้างรอบจุด (x, z) */
@@ -1421,7 +1322,7 @@ export class Game {
     this.particles.burst(x, 0.8, z, color, 22, 7, 0.18, 0.8);
     for (const h of this.heroCandidates(60)) {
       const p = this.tPos(h);
-      if (h.kind === 'b' || Math.hypot(p.x - x, p.z - z) < r) this.tHit(h, dmg);
+      if (Math.hypot(p.x - x, p.z - z) < r) this.tHit(h, dmg);
     }
   }
 
@@ -1459,10 +1360,10 @@ export class Game {
       if (f.sweep) {
         const p = f.obj.position;
         for (const h of this.heroCandidates(60)) {
-          const key = h.kind === 't' ? h.t : h.kind === 'e' ? h.u : 'boss';
+          const key = h.kind === 't' ? h.t : h.u;
           if (f.sweep.hit.has(key)) continue;
           const q = this.tPos(h);
-          if (h.kind === 'b' ? p.z < q.z + 1 : Math.hypot(q.x - p.x, q.z - p.z) < 1.1) {
+          if (Math.hypot(q.x - p.x, q.z - p.z) < 1.1) {
             f.sweep.hit.add(key);
             this.tHit(h, f.sweep.dmg);
           }
@@ -1490,7 +1391,7 @@ export class Game {
     }
 
     if (!this.hero || !this.squad.count) return;
-    if (this.state !== 'run' && this.state !== 'bonus' && this.state !== 'boss') return;
+    if (this.state !== 'run' && this.state !== 'bonus') return;
     this.heroCool -= dt;
     if (this.heroCool > 0) return;
     const cands = this.heroCandidates(18);
@@ -1501,7 +1402,7 @@ export class Game {
     this.heroCool = this.heroDef.cooldown;
     const base = this.heroBase();
     // เป้าหลัก: อันที่ใกล้ที่สุด (มิสไซล์เลือกอันที่เลือดเยอะสุด)
-    const hpOf = (h: HeroTarget) => (h.kind === 't' ? h.t.hp : h.kind === 'e' ? h.u.hp : this.bossHp);
+    const hpOf = (h: HeroTarget) => (h.kind === 't' ? h.t.hp : h.u.hp);
     const near = cands.reduce((a, b) => (this.tPos(b).z > this.tPos(a).z ? b : a));
     const main = this.heroDef.skill === 'missile' ? cands.reduce((a, b) => (hpOf(b) > hpOf(a) ? b : a)) : near;
     const tp = this.tPos(main);
@@ -1512,7 +1413,7 @@ export class Game {
           this.aoe(tp.x, tp.z, 2.4, base * 6, 0x7cf26b);
           for (const h of this.heroCandidates(60)) {
             const p = this.tPos(h);
-            if (h.kind === 'b' || Math.hypot(p.x - tp.x, p.z - tp.z) < 2.4) this.dots.push({ target: h, dmg: base * 1.5, left: 3, t: 0, color: 0x7cf26b });
+            if (Math.hypot(p.x - tp.x, p.z - tp.z) < 2.4) this.dots.push({ target: h, dmg: base * 1.5, left: 3, t: 0, color: 0x7cf26b });
           }
           sfx.breakBlock();
         });
@@ -1548,7 +1449,7 @@ export class Game {
           // กระแสลม 3 สาย พัดไปข้างหน้า
           for (const a of [-0.35, 0, 0.35]) {
             const f = this.launch('wind', { x: tp.x + Math.sin(a) * 14, y: 0.8, z: tp.z - Math.cos(a) * 14 }, 1.0, 0, () => {}, { x: tp.x, y: 0.8, z: tp.z });
-            f.sweep = { dmg: base * 2.5, hit: new Set([main.kind === 't' ? main.t : main.kind === 'e' ? main.u : 'boss']) };
+            f.sweep = { dmg: base * 2.5, hit: new Set([main.kind === 't' ? main.t : main.u]) };
           }
           sfx.gateGood();
         });
@@ -1588,6 +1489,7 @@ export class Game {
       equipped: h.equipped,
       gear: this.save.gear,
       era: eraIndexForLevel(this.save.level),
+      troopImg: troopPortrait(eraIndexForLevel(this.save.level)),
       heroes: HEROES.map((d) => {
         const lvl = h.levels[d.id] ?? 1;
         const cost = heroUpgradeCost(lvl);
@@ -1714,40 +1616,6 @@ export class Game {
     sfx.gateGood();
   }
 
-  private updateBoss(dt: number): void {
-    const boss = this.boss!;
-    const L = this.level;
-    this.squad.targetX = 0;
-    const atStop = this.dist >= L.endD - BOSS_STOP - 0.05;
-    if (atStop) {
-      this.bossTime += dt;
-      this.stompTimer += dt;
-      if (this.stompTimer >= BOSS_STOMP_INTERVAL && this.bossHp > 0) {
-        this.stompTimer = 0;
-        boss.stomp();
-      }
-    }
-    if (boss.update(dt, this.t)) {
-      const n = this.squad.count;
-      // ฝูงเล็กเสียตามสัดส่วน (มีโอกาสไม่เสียเลย) บอสยิ่งสู้นานยิ่งแรง
-      const exp = n * BOSS_STOMP_KILL * (1 + this.bossTime / 10);
-      const kill = Math.min(n, Math.floor(exp) + (Math.random() < exp % 1 ? 1 : 0));
-      for (let k = 0; k < kill; k++) this.killTroop(Math.floor(Math.random() * this.squad.count), 'boss');
-      sfx.stomp();
-      buzz('heavy');
-      this.shake = 0.35;
-    }
-    this.ui.setBossHp(this.bossHp / L.bossHp, this.bossHp);
-    if (this.bossHp <= 0) {
-      boss.die();
-      this.particles.confetti(0, 3, boss.group.position.z, 90);
-      this.ui.hideBossBar();
-      this.win();
-      return;
-    }
-    if (this.squad.count === 0) this.lose();
-  }
-
   /** ผ่านสเตจ (index 0–3): สุ่มของดรอปแล้วเก็บเข้าเซฟทันที (แพ้ทีหลังก็ไม่หาย) คืนข้อความสั้นๆ */
   private stageDrop(index: number): string {
     const d = rollStageDrops(index, Math.random);
@@ -1764,7 +1632,7 @@ export class Game {
     sfx.win();
     buzz('heavy');
     this.ui.showHint(false);
-    const z = this.boss ? this.boss.group.position.z : this.squad.z - 4;
+    const z = this.squad.z - 4;
     this.particles.confetti(this.squad.x, 3, z, 60);
   }
 
@@ -1775,12 +1643,10 @@ export class Game {
     this.squad.troops = [];
     sfx.lose();
     buzz('heavy');
-    this.ui.hideBossBar();
     this.ui.showHint(false);
   }
 
   private updateEnd(dt: number): void {
-    this.boss?.update(dt, this.t);
     this.projectiles!.update(dt, PROJECTILE_SPEED, () => false);
     if (this.state === 'won' && Math.random() < dt * 3) {
       this.particles.confetti(this.squad.x + (Math.random() - 0.5) * 6, 4, this.squad.z - 5, 10);
@@ -1929,13 +1795,6 @@ export class Game {
   private computeCamera(pos: Vector3, look: Vector3): void {
     const f = Math.max(0.95, Math.min(1.3, 0.58 / this.camera.aspect));
     const st = this.state === 'paused' ? this.pausedFrom : this.state;
-    const bossView = this.boss && (st === 'boss' || ((st === 'won' || st === 'result' || st === 'lost') && this.level.eraBoss && this.dist >= this.level.finishD));
-    if (bossView && this.boss) {
-      const bz = this.boss.group.position.z;
-      pos.set(0, 9.5 * f, this.squad.z + 8.5 * f);
-      look.set(0, 2.2, bz + 3);
-      return;
-    }
     if (st === 'menu') {
       const sway = Math.sin(this.t * 0.35) * 1.0;
       pos.set(sway, 5.2 * f, this.squad.z + 7.5 * f);
@@ -1988,7 +1847,7 @@ export class Game {
   }
 
   private updateLabels(dt: number): void {
-    const playing = this.state === 'run' || this.state === 'bonus' || this.state === 'boss' || this.state === 'paused' || this.state === 'menu';
+    const playing = this.state === 'run' || this.state === 'bonus' || this.state === 'paused' || this.state === 'menu';
     if (playing && this.squad.count > 0) {
       const p = this.project(this.squad.x, 1.9, this.squad.z - this.squad.radiusZ() * 0.4);
       this.ui.setCrowdLabel(this.squad.count, p.x, p.y, p.vis);
@@ -2027,17 +1886,6 @@ export class Game {
           if (p.vis && this.state !== 'paused') this.ui.damageNumber(Math.round(t.pending), p.x, p.y);
           t.pending = 0;
         }
-      }
-    }
-    if (this.boss && this.state === 'boss') {
-      const p = this.project(0, this.boss.scale * 1.45 + 0.6, this.boss.group.position.z);
-      this.ui.placeBossBar(p.x, p.y);
-      this.bossPendT += dt;
-      if (this.bossPending > 0 && this.bossPendT > 0.16) {
-        this.bossPendT = 0;
-        const q = this.project((Math.random() - 0.5) * 2.5, 2 + Math.random() * 3, this.boss.group.position.z + 1);
-        this.ui.damageNumber(Math.round(this.bossPending), q.x, q.y);
-        this.bossPending = 0;
       }
     }
   }

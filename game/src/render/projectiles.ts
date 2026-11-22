@@ -51,7 +51,17 @@ function projectileGeometry(era: number): { geo: BufferGeometry; tumble: boolean
         tumble: true,
       };
     case 'gunpowder':
-      return { geo: m([part(new SphereGeometry(0.08, 8, 6), 0x2a2a2a, 0, 0, 0)]), tumble: false };
+      // ลูกตะกั่ว + ควันกลมๆ ตามหลัง (ของเดิมดำล้วนมองไม่ค่อยเห็น)
+      return {
+        geo: m([
+          part(new SphereGeometry(0.1, 10, 8), 0x3a3f48, 0, 0, 0),
+          part(new SphereGeometry(0.035, 6, 4), 0xc9d1dc, -0.03, 0.04, -0.07),
+          part(new SphereGeometry(0.09, 8, 6), 0xfff3dc, 0.02, 0.02, 0.18),
+          part(new SphereGeometry(0.07, 8, 6), 0xf3e6cc, -0.03, 0.0, 0.3),
+          part(new SphereGeometry(0.05, 8, 6), 0xeadcc0, 0.01, 0.02, 0.4),
+        ]),
+        tumble: false,
+      };
     case 'modern':
       return {
         geo: m([
@@ -63,6 +73,63 @@ function projectileGeometry(era: number): { geo: BufferGeometry; tumble: boolean
     case 'future':
       return { geo: m([part(new BoxGeometry(0.07, 0.07, 0.7), 0x6ff7ff, 0, 0, 0)]), tumble: false };
   }
+}
+
+const throwCache = new Map<number, BufferGeometry>();
+/** อาวุธที่ศัตรูชุดดำปาใส่ฝูง เปลี่ยนตามยุค */
+export function enemyThrowGeometry(era: number): BufferGeometry {
+  const c = throwCache.get(era);
+  if (c) return c;
+  const m = (parts: BufferGeometry[]) => mergeGeometries(parts, false)!;
+  let g: BufferGeometry;
+  switch (ERAS[era].decor) {
+    case 'stone': // กระดูก
+      g = m([
+        part(new CylinderGeometry(0.05, 0.05, 0.5, 6), 0xf2ead8, 0, 0, 0, { rx: Math.PI / 2 }),
+        ...[-1, 1].flatMap((e) => [-1, 1].map((sx) => part(new SphereGeometry(0.075, 8, 6), 0xf7f0e0, sx * 0.05, 0, e * 0.26))),
+      ]);
+      break;
+    case 'ancient': // โถดินเผา
+      g = m([
+        part(new SphereGeometry(0.17, 10, 8), 0xc8704e, 0, 0, 0, { sy: 0.9 }),
+        part(new CylinderGeometry(0.07, 0.09, 0.1, 10), 0xb5603f, 0, 0.17, 0),
+        part(new CylinderGeometry(0.175, 0.175, 0.04, 12), 0xf2c94c, 0, 0.02, 0),
+      ]);
+      break;
+    case 'medieval': // ลูกตุ้มหนาม (หนามมน)
+      g = m([
+        part(new SphereGeometry(0.14, 10, 8), 0x8c9096, 0, 0, 0),
+        ...[[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]].map(([x, y, z]) =>
+          part(new SphereGeometry(0.05, 6, 4), 0xb9bec4, x * 0.15, y * 0.15, z * 0.15)),
+        part(new CylinderGeometry(0.03, 0.03, 0.22, 6), 0x6b4220, 0, -0.24, 0),
+      ]);
+      break;
+    case 'gunpowder': // ระเบิดลูกกลมไส้ชนวน
+      g = m([
+        part(new SphereGeometry(0.16, 12, 10), 0x2b2b38, 0, 0, 0),
+        part(new CylinderGeometry(0.05, 0.05, 0.06, 8), 0x55555f, 0, 0.17, 0),
+        part(new CylinderGeometry(0.015, 0.015, 0.1, 5), 0xc9a46b, 0.02, 0.24, 0, { rz: -0.4 }),
+        part(new SphereGeometry(0.045, 6, 4), 0xffa62b, 0.05, 0.3, 0),
+      ]);
+      break;
+    case 'modern': // ระเบิดมือ
+      g = m([
+        part(new SphereGeometry(0.13, 10, 8), 0x55663f, 0, 0, 0, { sy: 1.25 }),
+        ...[-0.06, 0.02, 0.1].map((y) => part(new CylinderGeometry(0.135, 0.135, 0.02, 10), 0x3f4d2e, 0, y - 0.02, 0)),
+        part(new CylinderGeometry(0.05, 0.05, 0.06, 8), 0x9aa1ad, 0, 0.18, 0),
+        part(new BoxGeometry(0.03, 0.18, 0.05), 0x9aa1ad, 0.07, 0.1, 0, { rz: -0.25 }),
+      ]);
+      break;
+    case 'future': // ลูกพลาสมาสีแดง
+    default:
+      g = m([
+        part(new SphereGeometry(0.16, 12, 10), 0xff3b5c, 0, 0, 0),
+        part(new SphereGeometry(0.09, 10, 8), 0xffd1dc, 0.03, 0.04, -0.06),
+      ]);
+      break;
+  }
+  throwCache.set(era, g);
+  return g;
 }
 
 const tmp = new Object3D();

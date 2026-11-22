@@ -2,19 +2,7 @@ import { BASE_FIRE_RATE, FIRE_RATE_SCALE, LANE_X, MAX_TIER, STAGES_PER_ERA, TIER
 import { eraIndexForLevel, eraOrdinal, levelInEra, timelineForLevel } from '../eras.ts';
 import { makeRng, pick } from '../rng.ts';
 
-export type ObstacleKind = 'saw' | 'wall' | 'hammer' | 'spinner' | 'fire';
 export type StatKind = 'rate' | 'range' | 'power';
-
-/** กับดักที่ทำลายไม่ได้ (ใบเลื่อย ค้อน คานหมุน) */
-export interface ObstacleSection {
-  type: 'obstacle';
-  d: number;
-  kind: ObstacleKind;
-  speed: number;
-  phase: number;
-  param: number;
-  width: number;
-}
 
 /** สิ่งกีดขวางที่มีเลือด ยิงให้แตกได้ ชนแล้วทหารตาย */
 export interface BlockItem {
@@ -34,17 +22,6 @@ export interface StatItem {
   value: number;
   /** เลือดแผงไม้กั้นด้านหน้า (0 = ไม่มี) */
   barrier: number;
-}
-
-/** กรงเชลย: ยิงแตกแล้วได้ทหารเพิ่ม */
-export interface CageItem {
-  type: 'cage';
-  d: number;
-  x: number;
-  hp: number;
-  prisoners: number;
-  /** มูลค่าเงินที่หล่นทุกครั้ง (4 ครั้งระหว่างโดนยิง) */
-  cash: number;
 }
 
 /** แท่นทหาร (Collect Area): ยิงแคปซูลให้แตก แล้ววิ่งผ่านแท่นเพื่อรับทหารระดับ tier */
@@ -92,7 +69,7 @@ export interface CrystalItem {
   star: boolean;
 }
 
-export type Item = ObstacleSection | BlockItem | StatItem | CageItem | RecruitItem | EnemyItem | CrystalItem | CashItem;
+export type Item = BlockItem | StatItem | RecruitItem | EnemyItem | CrystalItem | CashItem;
 
 export interface LevelData {
   /** เลขด่านรวม */
@@ -105,15 +82,13 @@ export interface LevelData {
   /** ระดับความยากที่ใช้คำนวณ */
   hard: number;
   era: number;
-  eraBoss: boolean;
   items: Item[];
   finishD: number;
-  /** ตำแหน่งบอส (ด่านบอส) หรือประตูปราสาทท้ายทุ่งสมบัติ */
+  /** ปลายทุ่งหอคอย (ถึงตรงนี้ = ผ่านยุค) */
   endD: number;
-  bossHp: number;
   /** จุดเริ่มสเตจ 1–3 และเส้นชัย (เริ่มสเตจ 4 ทุ่งหอคอย) */
   stageD: number[];
-  /** ดาเมจต่อนัดของศัตรู = ใช้คำนวณเลือดบอสแสดงผล */
+  /** ค่าอ้างอิงดาเมจต่อนัดของยุคนี้ */
   enemyHp: number;
 }
 
@@ -276,7 +251,7 @@ export function generateLevel(level: number, player: PlayerStats): LevelData {
   const towerTroops = Math.min(MAX_SQUAD_REF, 5 + hard * 1.4);
   const towerDps = towerTroops * BASE_FIRE_RATE * dmgRef * 1.6;
   // ยุคแรกเบากว่า แล้วค่อยๆ แข็งขึ้น (ชดเชยแท่นทหารที่มีทุกสเตจ)
-  const towerK = Math.min(0.85, 0.5 + 0.07 * eraOrd);
+  const towerK = Math.min(0.9, 0.5 + 0.13 * eraOrd);
   let cd = finishD + 8;
   for (let k = 0; k < TOWER_ROWS; k++) {
     for (const x of LANES) {
@@ -293,8 +268,6 @@ export function generateLevel(level: number, player: PlayerStats): LevelData {
     cd += 5.5;
   }
   const endD = cd + 2;
-  const eraBoss = false;
-  const bossHp = 0;
   return {
     level,
     timeline,
@@ -302,11 +275,9 @@ export function generateLevel(level: number, player: PlayerStats): LevelData {
     eraOrd,
     hard,
     era,
-    eraBoss,
     items,
     finishD,
     endD,
-    bossHp,
     stageD,
     enemyHp: Math.max(1, Math.round(dmgRef * 2)),
   };

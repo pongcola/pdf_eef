@@ -46,6 +46,8 @@ export interface TeamData {
   gear: GearState;
   /** ยุคปัจจุบัน (0–5) ใช้เลือกไอคอนอาวุธ */
   era: number;
+  /** รูปทหาร 3D ของยุคปัจจุบัน (data URL, '' = ไม่มี) */
+  troopImg: string;
 }
 
 export interface TimelineData {
@@ -149,7 +151,6 @@ export class UI {
   private menu: HTMLElement;
   private hud: HTMLElement;
   private hint: HTMLElement;
-  private bossbar: HTMLElement;
   private pauseModal: HTMLElement;
   private resultModal: HTMLElement;
   private settingsModal: HTMLElement;
@@ -243,13 +244,6 @@ export class UI {
 
     this.hint = el('div', 'hint hidden', `<div class="hand">${ico('hand')}</div><div>ลากนิ้วซ้าย–ขวา ทหารจะยิงเอง</div>`);
     root.append(this.hint);
-
-    this.bossbar = el(
-      'div',
-      'bossbar hidden',
-      `<div class="boss-name" data-bossname>บอส</div><div class="hp"><div class="hp-fill" data-hp></div><span data-hptext></span></div>`,
-    );
-    root.append(this.bossbar);
 
     this.pauseModal = el(
       'div',
@@ -490,7 +484,7 @@ export class UI {
 
   // ---------- ระหว่างเล่น ----------
 
-  showHud(level: number, timeline: number, _eraBoss: boolean): void {
+  showHud(level: number, timeline: number): void {
     this.hud.classList.remove('hidden');
     this.hudLevel = { level, timeline };
     this.stageKey = -1;
@@ -648,25 +642,6 @@ export class UI {
     setTimeout(() => f.remove(), 1000);
   }
 
-  showBossBar(eraBoss: boolean): void {
-    this.bossbar.classList.remove('hidden');
-    this.q(this.bossbar, '[data-bossname]').innerHTML = eraBoss ? `${ico('crown')} ราชันแห่งยุค` : 'บอส';
-  }
-
-  hideBossBar(): void {
-    this.bossbar.classList.add('hidden');
-  }
-
-  setBossHp(frac: number, hp: number): void {
-    this.q(this.bossbar, '[data-hp]').style.width = `${Math.max(0, frac) * 100}%`;
-    this.q(this.bossbar, '[data-hptext]').textContent = fmt(Math.ceil(hp));
-  }
-
-  placeBossBar(x: number, y: number): void {
-    const top = Math.max(120, Math.min(window.innerHeight * 0.4, y));
-    this.bossbar.style.transform = `translate(${x.toFixed(1)}px, ${top.toFixed(1)}px) translate(-50%, -100%)`;
-  }
-
   // ---------- ผลลัพธ์ ----------
 
   showResult(r: ResultData): void {
@@ -781,7 +756,7 @@ export class UI {
       </div>`;
     let body: string;
     if (this.teamTab === 'gears') {
-      body = this.gearBody(d.gear, d.era);
+      body = this.gearBody(d.gear, d.era, d.troopImg);
     } else if (this.teamTab !== 'hero') {
       body = `<div class="soon">${ico('lock')}<b>เร็วๆ นี้</b><div>สัตว์เลี้ยงช่วยรบ จะมาในอัปเดตถัดไป</div></div>`;
     } else {
@@ -886,24 +861,28 @@ export class UI {
     </button>`;
   }
 
-  private gearBody(g: GearState, era: number): string {
+  private gearBody(g: GearState, era: number, troopImg: string): string {
     const sub = (k: string, label: string) => `<button class="gsub ${this.gearSub === k ? 'on' : ''}" data-gsub="${k}">${label}</button>`;
     const last = this.gearLast?.msg ? `<div class="g-msg ${this.gearLast.good ? 'good' : 'bad'}">${this.gearLast.msg}</div>` : '';
     let inner = '';
-    if (this.gearSub === 'equip') inner = this.gearEquip(g, era);
+    if (this.gearSub === 'equip') inner = this.gearEquip(g, era, troopImg);
     else if (this.gearSub === 'mine') inner = this.gearMine(g);
     else inner = this.gearGacha(g, era);
     return `<div class="gsubs">${sub('equip', 'สวมใส่')}${sub('mine', 'เหมือง')}${sub('gacha', 'สุ่ม')}</div>${last}<div class="gear-scroll">${inner}</div>`;
   }
 
-  private gearEquip(g: GearState, era: number): string {
+  private gearEquip(g: GearState, era: number, troopImg: string): string {
     const tot = totalStats(g);
-    const slots = GEAR_SLOTS.map((slot, i) => {
+    const slotHtml = GEAR_SLOTS.map((slot, i) => {
       const it = g.equipped[i] ? findItem(g, g.equipped[i]) : undefined;
       return it
         ? this.itemCell(it, g, era, `data-gitem="${it.id}"`)
         : `<div class="gi empty"><span class="gi-ph">${this.gearIcon({ slot: i, cls: 0 }, era)}</span><small>${SLOT_NAME[slot]}</small></div>`;
-    }).join('');
+    });
+    // ซ้าย: หมวก ชุด รองเท้า • กลาง: รูปทหาร • ขวา: เกราะ ถุงมือ อาวุธ
+    const slots = `<div class="g-col">${slotHtml.slice(0, 3).join('')}</div>
+      <div class="g-troop">${troopImg ? `<img src="${troopImg}" alt="">` : ''}</div>
+      <div class="g-col">${slotHtml.slice(3).join('')}</div>`;
     const sel = this.gearSel ? findItem(g, this.gearSel) : undefined;
     // ค่าที่จะเปลี่ยนถ้าใส่ชิ้นที่เลือก
     let diff: Partial<Record<Stat, number>> = {};

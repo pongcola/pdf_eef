@@ -21,7 +21,7 @@ import {
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { MAX_TIER, STAT_GATE_MAX } from '../config.ts';
-import { PLAYER_COLOR, TIER_COLORS, tierLook } from '../eras.ts';
+import { TIER_COLORS, tierLook } from '../eras.ts';
 import { STAT_LABEL, type StatKind } from '../game/level.ts';
 import { part, unitGeometry, unitMaterial } from './units.ts';
 
@@ -189,67 +189,6 @@ export class BlockTarget extends Target {
     if (this.hitT > 0) this.hitT -= dt;
     const sq = this.hitT > 0 ? 0.93 : 1;
     this.group.scale.set(2 - sq, sq, 2 - sq);
-  }
-}
-
-// ---------- กรงเชลย ----------
-
-const cageMetal = new MeshLambertMaterial({ color: 0x4a4f5a });
-const cageGold = new MeshLambertMaterial({ color: 0xffc928 });
-const barGeo = new CylinderGeometry(0.05, 0.05, 1.7, 5);
-const ringGeo = new CylinderGeometry(1.0, 1.0, 0.16, 18);
-
-export class CageTarget extends Target {
-  readonly kind = 'cage' as const;
-  readonly prisoners: number;
-  readonly cashValue: number;
-  /** จำนวนครั้งที่ปล่อยเงินไปแล้ว (ทุกๆ 25% ของเลือด) */
-  drops = 0;
-  private readonly inmates: Mesh[] = [];
-  constructor(era: number, x: number, z: number, hp: number, prisoners: number, cashValue: number) {
-    super(x, z, hp);
-    this.prisoners = prisoners;
-    this.cashValue = cashValue;
-    this.halfW = 1.0;
-    const base = new Mesh(ringGeo, cageMetal);
-    base.position.y = 0.08;
-    this.group.add(base);
-    const top = new Mesh(ringGeo, cageMetal);
-    top.position.y = 1.85;
-    this.group.add(top);
-    for (let i = 0; i < 12; i++) {
-      const a = (i / 12) * Math.PI * 2;
-      const b = new Mesh(barGeo, cageMetal);
-      b.position.set(Math.cos(a) * 0.92, 1.0, Math.sin(a) * 0.92);
-      this.group.add(b);
-    }
-    const lock = new Mesh(new BoxGeometry(0.34, 0.34, 0.12), cageGold);
-    lock.position.set(0, 0.9, 1.0);
-    this.group.add(lock);
-    const show = Math.min(3, prisoners);
-    for (let i = 0; i < show; i++) {
-      const u = staticUnit(era, PLAYER_COLOR, 0.95);
-      u.position.set((i - (show - 1) / 2) * 0.45, 0.16, (i % 2) * 0.2 - 0.1);
-      this.group.add(u);
-      this.inmates.push(u);
-    }
-  }
-
-  /** ตำแหน่งในโลกของเชลยแต่ละตัว (ใช้ตอนปล่อยตัว) */
-  prisonerSpots(): { x: number; z: number }[] {
-    const out = [];
-    for (let i = 0; i < this.prisoners; i++) out.push({ x: this.x + (i - (this.prisoners - 1) / 2) * 0.4, z: this.z });
-    return out;
-  }
-
-  update(dt: number, t: number): void {
-    super.update(dt, t);
-    this.inmates.forEach((m, i) => (m.position.y = 0.16 + Math.abs(Math.sin(t * 5 + i)) * 0.12));
-  }
-
-  dispose(): void {
-    super.dispose();
-    for (const m of this.inmates) m.geometry.dispose();
   }
 }
 

@@ -19,7 +19,7 @@ import {
   SphereGeometry,
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { ERAS } from '../eras.ts';
+import { ERAS, RAINBOW_TEAM } from '../eras.ts';
 
 /** uniform เวลา ใช้ร่วมกันทุก material ของตัวละคร */
 export const sharedTime = { value: 0 };
@@ -100,8 +100,9 @@ export function unitGeometry(era: number, team: number): BufferGeometry {
       parts.push(part(new SphereGeometry(0.19, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), E.metal, 0, 1.0, 0));
       parts.push(part(new BoxGeometry(0.05, 0.12, 0.34), team, 0, 1.2, 0.02));
       // หอก
-      parts.push(part(new CylinderGeometry(0.025, 0.025, 1.4, 5), E.weapon, 0.3, 0.95, -0.12));
-      parts.push(part(new ConeGeometry(0.06, 0.18, 5), E.metal, 0.3, 1.72, -0.12));
+      // หอกสั้นลง (เดิม 1.4 ยาวจนบังทหารแถวหลัง)
+      parts.push(part(new CylinderGeometry(0.025, 0.025, 0.9, 5), E.weapon, 0.3, 0.78, -0.12));
+      parts.push(part(new ConeGeometry(0.06, 0.16, 5), E.metal, 0.3, 1.3, -0.12));
       // โล่กลม
       parts.push(part(new CylinderGeometry(0.24, 0.24, 0.05, 12), E.metal, -0.33, 0.66, -0.06, { rz: Math.PI / 2 }));
       parts.push(part(new CylinderGeometry(0.1, 0.1, 0.06, 10), team, -0.36, 0.66, -0.06, { rz: Math.PI / 2 }));
@@ -151,6 +152,16 @@ export function unitGeometry(era: number, team: number): BufferGeometry {
 
   const merged = mergeGeometries(parts, false);
   if (!merged) throw new Error('merge failed');
+  // ทหาร Lv.10: ส่วนที่เป็นสีทีม (เสื้อ แขน) เปลี่ยนสีรุ้งใน shader
+  const rb = new Float32Array(merged.getAttribute('position').count);
+  if (team === RAINBOW_TEAM) {
+    const col = merged.getAttribute('color');
+    const tc = new Color(team);
+    for (let i = 0; i < rb.length; i++) {
+      if (Math.abs(col.getX(i) - tc.r) + Math.abs(col.getY(i) - tc.g) + Math.abs(col.getZ(i) - tc.b) < 0.01) rb[i] = 1;
+    }
+  }
+  merged.setAttribute('aRainbow', new Float32BufferAttribute(rb, 1));
   merged.computeBoundingSphere();
   geoCache.set(key, merged);
   return merged;
@@ -179,8 +190,17 @@ export function unitMaterial(run: { value: number }, speed = 13): MeshToonMateri
 attribute float aSwing;
 attribute float aPivot;
 attribute float aPhase;
+attribute float aRainbow;
 uniform float uTime;
 uniform float uRun;`,
+      )
+      .replace(
+        '#include <color_vertex>',
+        `#include <color_vertex>
+if (aRainbow > 0.5) {
+  float hh = fract(uTime * 0.35 + position.y * 0.9);
+  vColor.rgb = clamp(abs(mod(hh * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0) * 0.8 + 0.2;
+}`,
       )
       .replace(
         '#include <begin_vertex>',

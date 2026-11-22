@@ -2129,3 +2129,13 @@ body {
 .gg-pity { font-size: 14px; }
 .gg-rates { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; }
 .gg-rates span { padding: 1px 8px; border-radius: 999px; border: 2px solid var(--cc); background: #fffdf6; font-size: 12px; font-weight: 700; }
+
+/* หน้าสวมใส่: 3 ช่องซ้าย + รูปทหาร + 3 ช่องขวา แล้ว stat ด้านล่าง */
+.g-equip { grid-template-columns: 1fr; }
+.g-slots { grid-template-columns: 1fr 1.5fr 1fr; align-items: center; gap: 8px; }
+.g-col { display: grid; gap: 6px; }
+.g-col .gi { width: 100%; max-width: 72px; justify-self: center; }
+.g-troop { display: grid; place-items: center; height: 100%; min-height: 150px; border-radius: 18px;
+  background: radial-gradient(circle at 50% 62%, rgba(140, 233, 154, 0.45), rgba(255, 248, 231, 0) 70%); }
+.g-troop img { width: 100%; max-width: 170px; height: auto; }
+.g-stats { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); column-gap: 12px; }

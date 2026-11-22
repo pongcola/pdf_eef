@@ -43,10 +43,6 @@ export const PROJECTILE_SPEED = 26;
 export const TIER_DAMAGE = [1, 1.6, 2.4, 3.5, 5, 7, 9.5, 12.5, 16, 20];
 export const MAX_TIER = TIER_DAMAGE.length;
 
-/** บอส */
-export const BOSS_STOMP_INTERVAL = 1.7;
-export const BOSS_STOMP_KILL = 0.1;
-
 /** โอกาสที่วงล้อคูณรางวัลจะโผล่หลังชนะ (0–1) */
 /** ป้ายสถานะยิงเพิ่มได้ไม่จำกัด */
 export const STAT_GATE_MAX = Infinity;

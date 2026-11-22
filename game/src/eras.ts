@@ -64,8 +64,10 @@ export const PLAYER_COLOR = 0x2f7bff;
 export const ENEMY_COLOR = 0xe8433f;
 /** ทหารศัตรู (ชุดดำแดง) */
 export const ENEMY_SQUAD_COLOR = 0x2b2b38;
-/** สีเสื้อทหารตามระดับ 1–5 */
-export const TIER_COLORS = [PLAYER_COLOR, 0x2fbf63, 0xf2b632, 0x9b5cff, 0x38f2ff, 0xff7a1a, 0xff5fa2, 0xe03b3b, 0xf5f5f5, 0x2b2b38];
+/** สีทีมพิเศษของทหาร Lv.10: เสื้อเปลี่ยนสีรุ้งใน shader (สีนี้ใช้เป็นตัวบอกและเป็นสีสำรอง) */
+export const RAINBOW_TEAM = 0xd4a018;
+/** สีเสื้อทหารตามระดับ 1–10 (Lv.10 สีรุ้ง — เดิมสีดำซ้ำกับชุดศัตรู) */
+export const TIER_COLORS = [PLAYER_COLOR, 0x2fbf63, 0xf2b632, 0x9b5cff, 0x38f2ff, 0xff7a1a, 0xff5fa2, 0xe03b3b, 0xf5f5f5, RAINBOW_TEAM];
 
 /** level = เลขด่านรวม (1, 2, 3, …) */
 export function eraIndexForLevel(level: number): number {
