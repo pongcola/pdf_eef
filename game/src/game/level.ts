@@ -251,7 +251,7 @@ export function generateLevel(level: number, player: PlayerStats): LevelData {
   const towerTroops = Math.min(MAX_SQUAD_REF, 5 + hard * 1.4);
   const towerDps = towerTroops * BASE_FIRE_RATE * dmgRef * 1.6;
   // ยุคแรกเบากว่า แล้วค่อยๆ แข็งขึ้น (ชดเชยแท่นทหารที่มีทุกสเตจ)
-  const towerK = Math.min(0.9, 0.5 + 0.13 * eraOrd);
+  const towerK = Math.min(0.92, 0.5 + 0.21 * eraOrd);
   let cd = finishD + 8;
   for (let k = 0; k < TOWER_ROWS; k++) {
     for (const x of LANES) {

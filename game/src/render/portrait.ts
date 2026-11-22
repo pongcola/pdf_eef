@@ -21,8 +21,8 @@ export function troopPortrait(era: number): string {
     d.position.set(2, 4, 3);
     scene.add(d);
     const cam = new PerspectiveCamera(30, 1, 0.1, 20);
-    cam.position.set(0, 1.0, 3.3);
-    cam.lookAt(0, 0.72, 0);
+    cam.position.set(0, 0.95, 2.45);
+    cam.lookAt(0, 0.68, 0);
     const mat = unitMaterial({ value: 0 });
     const m = new Mesh(unitGeometry(era, PLAYER_COLOR), mat);
     // ด้านหน้าโมเดลหันไปทาง -Z → หมุนให้หันหน้าเข้ากล้อง เอียงเล็กน้อย
